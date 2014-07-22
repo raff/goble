@@ -1,7 +1,7 @@
 package main
 
 import (
-        "../../goble"
+	"../../goble"
 )
 
 func main() {

@@ -1,6 +1,7 @@
 #include "xpc_wrapper.h"
 #include <dispatch/dispatch.h>
 #include <xpc/connection.h>
+#include <Block.h>
 #include <stdio.h>
 
 //
@@ -22,7 +23,7 @@ xpc_object_t ERROR_CONNECTION_TERMINATED = (xpc_object_t) XPC_ERROR_TERMINATION_
 //
 // this is the Go event handler
 //
-extern void HandleXPCEvent(xpc_object_t);
+extern void HandleXPCEvent(xpc_object_t, void *);
 
 extern void DictSet(void *, const char *, xpc_object_t);
 extern void ArraySet(void *, int, xpc_object_t);
@@ -30,15 +31,20 @@ extern void ArraySet(void *, int, xpc_object_t);
 //
 // connect to Apple Blued service
 //
-xpc_connection_t XpcConnectBlued() {
+xpc_connection_t XpcConnectBlued(void *event_handler) {
     char *service = "com.apple.blued";
     dispatch_queue_t queue = dispatch_queue_create(service, 0);
     xpc_connection_t conn = xpc_connection_create_mach_service(service, queue, XPC_CONNECTION_MACH_SERVICE_PRIVILEGED);
 
+    // this is needed to make sure that the following block
+    // has a reference to a valid memory location
+    void *eh = *((void **)event_handler);
+
     xpc_connection_set_event_handler(conn,
         ^(xpc_object_t event) {
-            HandleXPCEvent(event);
-        });
+            HandleXPCEvent(event, (void *)&eh);
+        }
+    );
 
     xpc_connection_resume(conn);
     return conn;

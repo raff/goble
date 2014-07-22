@@ -7,21 +7,41 @@ package goble
 import "C"
 
 import (
+	"errors"
+	"fmt"
 	"log"
 	r "reflect"
 	"unsafe"
 )
 
+//
+// minimal XPC support required for BLE
+//
+
+// a dictionary of things
 type dict map[string]interface{}
+
+// an array of things
 type array []interface{}
 
-//
-// minimal XPC support
-//
+var (
+	CONNECTION_INVALID     = errors.New("connection invalid")
+	CONNECTION_INTERRUPTED = errors.New("connection interrupted")
+	CONNECTION_TERMINATED  = errors.New("connection terminated")
+)
+
+type EventHandler func(event dict, err error)
+
+// XpcConnect connects to the Blued service
+// (with some trickery to pass around the event callback handler)
+func XpcConnect(eh EventHandler) C.xpc_connection_t {
+	return C.XpcConnectBlued((*(*unsafe.Pointer)(unsafe.Pointer(&eh))))
+}
 
 //export HandleXPCEvent
-func HandleXPCEvent(event C.xpc_object_t) {
+func HandleXPCEvent(event C.xpc_object_t, p unsafe.Pointer) {
 	t := C.xpc_get_type(event)
+	eh := (*(*EventHandler)(unsafe.Pointer(&p)))
 
 	if t == C.TYPE_ERROR {
 		if event == C.ERROR_CONNECTION_INVALID {
@@ -31,35 +51,31 @@ func HandleXPCEvent(event C.xpc_object_t) {
 			// call xpc_connection_cancel(). Just tear down any associated state
 			// here.
 			log.Println("connection invalid")
+			eh(nil, CONNECTION_INVALID)
 		} else if event == C.ERROR_CONNECTION_INTERRUPTED {
 			log.Println("connection interrupted")
+			eh(nil, CONNECTION_INTERRUPTED)
 		} else if event == C.ERROR_CONNECTION_TERMINATED {
 			// Handle per-connection termination cleanup.
 			log.Println("connection terminated")
+			eh(nil, CONNECTION_TERMINATED)
 		} else {
 			log.Println("got some error", event)
+			eh(nil, fmt.Errorf("%v", event))
 		}
 	} else {
-		ev := xpcToGo(event).(dict)
-		id := ev["kCBMsgId"].(int64)
-		args := ev["kCBMsgArgs"].(dict) // what happens if there are no args ?
-
-		switch id {
-		case 6: // state change
-			state := args["kCBMsgArgState"].(int64)
-			states := []string{"unknown", "resetting", "unsupported", "unauthorized", "poweredOff", "poweredOn"}
-			log.Printf("event: adapterState %v\n", states[state])
-
-		default:
-			log.Printf("event: %#v\n", ev)
-		}
+		eh(xpcToGo(event).(dict), nil)
 	}
 }
 
+// goToXpc converts a go object to an xpc object
 func goToXpc(o interface{}) C.xpc_object_t {
 	return valueToXpc(r.ValueOf(o))
 }
 
+// valueToXpc converts a go Value to an xpc object
+//
+// note that not all the types are supported, but only the subset required for Blued
 func valueToXpc(val r.Value) C.xpc_object_t {
 	if !val.IsValid() {
 		return nil
@@ -121,6 +137,9 @@ func DictSet(u unsafe.Pointer, k *C.char, v C.xpc_object_t) {
 	d[C.GoString(k)] = xpcToGo(v)
 }
 
+// xpcToGo converts an xpc object to a go object
+//
+// note that not all the types are supported, but only the subset required for Blued
 func xpcToGo(v C.xpc_object_t) interface{} {
 	t := C.xpc_get_type(v)
 
