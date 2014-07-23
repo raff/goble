@@ -12,6 +12,7 @@ extern xpc_type_t TYPE_DATA;
 extern xpc_type_t TYPE_DICT;
 extern xpc_type_t TYPE_INT64;
 extern xpc_type_t TYPE_STRING;
+extern xpc_type_t TYPE_UUID;
 
 extern xpc_object_t ERROR_CONNECTION_INVALID;
 extern xpc_object_t ERROR_CONNECTION_INTERRUPTED;
@@ -21,5 +22,6 @@ extern xpc_connection_t XpcConnectBlued(void *);
 extern void XpcSendMessage(xpc_connection_t, xpc_object_t, bool);
 extern void XpcArrayApply(void *, xpc_object_t);
 extern void XpcDictApply(void *, xpc_object_t);
+extern void XpcUUIDGetBytes(void *, xpc_object_t);
 
 #endif

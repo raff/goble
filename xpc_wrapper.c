@@ -15,6 +15,7 @@ xpc_type_t TYPE_DATA = XPC_TYPE_DATA;
 xpc_type_t TYPE_DICT = XPC_TYPE_DICTIONARY;
 xpc_type_t TYPE_INT64 = XPC_TYPE_INT64;
 xpc_type_t TYPE_STRING = XPC_TYPE_STRING;
+xpc_type_t TYPE_UUID = XPC_TYPE_UUID;
 
 xpc_object_t ERROR_CONNECTION_INVALID = (xpc_object_t) XPC_ERROR_CONNECTION_INVALID;
 xpc_object_t ERROR_CONNECTION_INTERRUPTED = (xpc_object_t) XPC_ERROR_CONNECTION_INTERRUPTED;
@@ -74,4 +75,13 @@ void XpcDictApply(void *v, xpc_object_t dict) {
     DictSet(v, key, value);
     return true;
   });
+}
+
+void XpcUUIDGetBytes(void *v, xpc_object_t uuid) {
+   const uint8_t *src = xpc_uuid_get_bytes(uuid);
+   uint8_t *dest = (uint8_t *)v;
+
+   for (int i=0; i < sizeof(uuid_t); i++) {
+     dest[i] = src[i];
+   }
 }

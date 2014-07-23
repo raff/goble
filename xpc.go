@@ -24,6 +24,13 @@ type dict map[string]interface{}
 // an array of things
 type array []interface{}
 
+// a UUID
+type UUID [16]byte
+
+func (uuid *UUID) String() string {
+    return fmt.Sprintf("%x", uuid)
+}
+
 var (
 	CONNECTION_INVALID     = errors.New("connection invalid")
 	CONNECTION_INTERRUPTED = errors.New("connection interrupted")
@@ -162,6 +169,11 @@ func xpcToGo(v C.xpc_object_t) interface{} {
 
 	case C.TYPE_STRING:
 		return C.GoString(C.xpc_string_get_string_ptr(v))
+
+	case C.TYPE_UUID:
+                a := [16]byte{}
+		C.XpcUUIDGetBytes(unsafe.Pointer(&a), v)
+		return UUID(a)
 
 	default:
 		log.Fatalf("unexpected type %#v, value %#v", t, v)

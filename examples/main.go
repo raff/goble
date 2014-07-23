@@ -1,6 +1,9 @@
 package main
 
 import (
+        "log"
+        "time"
+
 	"../../goble"
 )
 
@@ -14,8 +17,26 @@ func main() {
 		})
 	*/
 
+
+        log.Println("Init...")
 	ble.Init()
 
-	waiter := make(chan int)
-	<-waiter
+        time.Sleep(1 * time.Second)
+        log.Println("Start Advertising...")
+        ble.StartAdvertising("gobble", []goble.UUID{})
+
+        time.Sleep(5 * time.Second)
+        log.Println("Stop Advertising...")
+        ble.StopAdvertising()
+
+        time.Sleep(1 * time.Second)
+        log.Println("Start Scanning...")
+        ble.StartScanning([]goble.UUID{}, true)
+
+        time.Sleep(5 * time.Second)
+        log.Println("Stop Scanning...")
+        ble.StopScanning()
+
+        time.Sleep(5 * time.Second)
+        log.Println("Goodbye!")
 }
