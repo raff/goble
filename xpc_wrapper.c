@@ -1,8 +1,11 @@
-#include "xpc_wrapper.h"
 #include <dispatch/dispatch.h>
+#include <xpc/xpc.h>
 #include <xpc/connection.h>
 #include <Block.h>
+#include <stdlib.h>
 #include <stdio.h>
+
+#include "_cgo_export.h"
 
 //
 // types and errors are implemented as macros
@@ -22,29 +25,19 @@ xpc_object_t ERROR_CONNECTION_INTERRUPTED = (xpc_object_t) XPC_ERROR_CONNECTION_
 xpc_object_t ERROR_CONNECTION_TERMINATED = (xpc_object_t) XPC_ERROR_TERMINATION_IMMINENT;
 
 //
-// this is the Go event handler
+// connect to XPC service
 //
-extern void HandleXPCEvent(xpc_object_t, void *);
-
-extern void DictSet(void *, const char *, xpc_object_t);
-extern void ArraySet(void *, int, xpc_object_t);
-
-//
-// connect to Apple Blued service
-//
-xpc_connection_t XpcConnectBlued(void *event_handler) {
-    char *service = "com.apple.blued";
+xpc_connection_t XpcConnect(char *service, void *ctx) {
     dispatch_queue_t queue = dispatch_queue_create(service, 0);
     xpc_connection_t conn = xpc_connection_create_mach_service(service, queue, XPC_CONNECTION_MACH_SERVICE_PRIVILEGED);
 
-    // this is needed to make sure that the following block
-    // has a reference to a valid memory location
-    void *eh = *((void **)event_handler);
+    // making a local copy, that should be made "persistent" with the following Block_copy
+    GoInterface ictx = *((GoInterface*)ctx);
 
     xpc_connection_set_event_handler(conn,
-        ^(xpc_object_t event) {
-            HandleXPCEvent(event, (void *)&eh);
-        }
+        Block_copy(^(xpc_object_t event) {
+            handleXpcEvent(event, (void *)&ictx);
+        })
     );
 
     xpc_connection_resume(conn);
@@ -65,14 +58,14 @@ void XpcSendMessage(xpc_connection_t conn, xpc_object_t message, bool release) {
 
 void XpcArrayApply(void *v, xpc_object_t arr) {
   xpc_array_apply(arr, ^bool(size_t index, xpc_object_t value) {
-    ArraySet(v, index, value);
+    arraySet(v, index, value);
     return true;
   });
 }
 
 void XpcDictApply(void *v, xpc_object_t dict) {
   xpc_dictionary_apply(dict, ^bool(const char *key, xpc_object_t value) {
-    DictSet(v, key, value);
+    dictSet(v, (char *)key, value);
     return true;
   });
 }

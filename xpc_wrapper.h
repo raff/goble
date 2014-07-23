@@ -1,5 +1,5 @@
-#ifndef _WRAPPER_H_
-#define _WRAPPER_H_
+#ifndef _XPC_WRAPPER_H_
+#define _XPC_WRAPPER_H_
 
 #include <stdlib.h>
 #include <stdio.h>
@@ -18,7 +18,7 @@ extern xpc_object_t ERROR_CONNECTION_INVALID;
 extern xpc_object_t ERROR_CONNECTION_INTERRUPTED;
 extern xpc_object_t ERROR_CONNECTION_TERMINATED;
 
-extern xpc_connection_t XpcConnectBlued(void *);
+extern xpc_connection_t XpcConnect(char *, void *);
 extern void XpcSendMessage(xpc_connection_t, xpc_object_t, bool);
 extern void XpcArrayApply(void *, xpc_object_t);
 extern void XpcDictApply(void *, xpc_object_t);

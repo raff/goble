@@ -1,7 +1,6 @@
 package goble
 
 /*
-#include <xpc/xpc.h>
 #include "xpc_wrapper.h"
 */
 import "C"
@@ -113,18 +112,24 @@ var (
 	CONNECTION_TERMINATED  = errors.New("connection terminated")
 )
 
-type EventHandler func(event dict, err error)
-
-// XpcConnect connects to the Blued service
-// (with some trickery to pass around the event callback handler)
-func XpcConnect(eh EventHandler) C.xpc_connection_t {
-	return C.XpcConnectBlued((*(*unsafe.Pointer)(unsafe.Pointer(&eh))))
+type XpcEventHandler interface {
+	HandleXpcEvent(event dict, err error)
 }
 
-//export HandleXPCEvent
-func HandleXPCEvent(event C.xpc_object_t, p unsafe.Pointer) {
+func XpcConnect(service string, eh XpcEventHandler) C.xpc_connection_t {
+	cservice := C.CString(service)
+	defer C.free(unsafe.Pointer(cservice))
+	return C.XpcConnect(cservice, unsafe.Pointer(&eh))
+}
+
+//export handleXpcEvent
+func handleXpcEvent(event C.xpc_object_t, p unsafe.Pointer) {
 	t := C.xpc_get_type(event)
-	eh := (*(*EventHandler)(unsafe.Pointer(&p)))
+
+	log.Printf("handleXpcEvent %#v %#v\n", event, p)
+
+	eh := *((*XpcEventHandler)(p))
+	log.Printf("handleXpcEvent %#v %#v\n", p, eh)
 
 	if t == C.TYPE_ERROR {
 		if event == C.ERROR_CONNECTION_INVALID {
@@ -134,20 +139,20 @@ func HandleXPCEvent(event C.xpc_object_t, p unsafe.Pointer) {
 			// call xpc_connection_cancel(). Just tear down any associated state
 			// here.
 			//log.Println("connection invalid")
-			eh(nil, CONNECTION_INVALID)
+			eh.HandleXpcEvent(nil, CONNECTION_INVALID)
 		} else if event == C.ERROR_CONNECTION_INTERRUPTED {
 			//log.Println("connection interrupted")
-			eh(nil, CONNECTION_INTERRUPTED)
+			eh.HandleXpcEvent(nil, CONNECTION_INTERRUPTED)
 		} else if event == C.ERROR_CONNECTION_TERMINATED {
 			// Handle per-connection termination cleanup.
 			//log.Println("connection terminated")
-			eh(nil, CONNECTION_TERMINATED)
+			eh.HandleXpcEvent(nil, CONNECTION_TERMINATED)
 		} else {
 			//log.Println("got some error", event)
-			eh(nil, fmt.Errorf("%v", event))
+			eh.HandleXpcEvent(nil, fmt.Errorf("%v", event))
 		}
 	} else {
-		eh(xpcToGo(event).(dict), nil)
+		eh.HandleXpcEvent(xpcToGo(event).(dict), nil)
 	}
 }
 
@@ -208,14 +213,14 @@ func valueToXpc(val r.Value) C.xpc_object_t {
 	return xv
 }
 
-//export ArraySet
-func ArraySet(u unsafe.Pointer, i C.int, v C.xpc_object_t) {
+//export arraySet
+func arraySet(u unsafe.Pointer, i C.int, v C.xpc_object_t) {
 	a := *(*array)(u)
 	a[i] = xpcToGo(v)
 }
 
-//export DictSet
-func DictSet(u unsafe.Pointer, k *C.char, v C.xpc_object_t) {
+//export dictSet
+func dictSet(u unsafe.Pointer, k *C.char, v C.xpc_object_t) {
 	d := *(*dict)(u)
 	d[C.GoString(k)] = xpcToGo(v)
 }

@@ -43,14 +43,14 @@ type BLE struct {
 }
 
 func NewBLE() *BLE {
-	ble := BLE{}
-	ble.conn = XpcConnect(ble.eventHandler)
-	ble.peripherals = map[string]Peripheral{}
-	return &ble
+	ble := &BLE{peripherals: map[string]Peripheral{}}
+	ble.conn = XpcConnect("com.apple.blued", ble)
+	return ble
 }
 
 // process BLE events and asynchronous errors
-func (ble *BLE) eventHandler(event dict, err error) {
+// (implements XpcEventHandler)
+func (ble *BLE) HandleXpcEvent(event dict, err error) {
 	id := event["kCBMsgId"].(int64)
 	args := event["kCBMsgArgs"].(dict) // what happens if there are no args ?
 
@@ -104,8 +104,9 @@ func (ble *BLE) eventHandler(event dict, err error) {
 
 		if sdata, ok := advdata["kCBAdvDataServiceUUIDs"]; ok {
 			log.Println("got service data:", sdata)
-			for _, data := range sdata.(array) {
+			for i, data := range sdata.(array) {
 				bytes := data.([]byte)
+				log.Println("service data", i, bytes)
 				sd := ServiceData{
 					uuid: fmt.Sprintf("%x", bytes[0]),
 					data: bytes[1:],
@@ -115,15 +116,11 @@ func (ble *BLE) eventHandler(event dict, err error) {
 			}
 		}
 
-		/*
-		   Right now ble is nil, so this will crash!
-
-		   ble.peripherals[devuuid] = Peripheral{
-		       uuid: devuuid,
-		       advertisement: advertisement,
-		       rssi: rssi,
-		   }
-		*/
+		ble.peripherals[devuuid] = Peripheral{
+			uuid:          devuuid,
+			advertisement: advertisement,
+			rssi:          rssi,
+		}
 
 		log.Println("event: discover", devuuid, advertisement, rssi)
 	}
