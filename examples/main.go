@@ -10,14 +10,6 @@ import (
 func main() {
 	ble := goble.NewBLE()
 
-	/*
-		ble.sendCBMsg(0, dict{
-			"kCBMsgArgAlert": 1,
-			"kCBMsgArgName":  "node",
-		})
-	*/
-
-
         log.Println("Init...")
 	ble.Init()
 
@@ -33,10 +25,10 @@ func main() {
         log.Println("Start Scanning...")
         ble.StartScanning([]goble.UUID{}, true)
 
-        time.Sleep(5 * time.Second)
+        time.Sleep(10 * time.Second)
         log.Println("Stop Scanning...")
         ble.StopScanning()
 
-        time.Sleep(5 * time.Second)
+        time.Sleep(2 * time.Second)
         log.Println("Goodbye!")
 }

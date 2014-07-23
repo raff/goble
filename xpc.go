@@ -21,14 +21,85 @@ import (
 // a dictionary of things
 type dict map[string]interface{}
 
+func (d dict) GetString(k, defv string) string {
+    if v := d[k]; v != nil {
+        //log.Printf("GetString %s %#v\n", k, v)
+        return v.(string)
+    } else {
+        //log.Printf("GetString %s default %#v\n", k, defv)
+        return defv
+    }
+}
+
+func (d dict) GetBytes(k string, defv []byte) []byte {
+    if v := d[k]; v != nil {
+        //log.Printf("GetBytes %s %#v\n", k, v)
+        return v.([]byte)
+    } else {
+        //log.Printf("GetBytes %s default %#v\n", k, defv)
+        return defv
+    }
+}
+
+func (d dict) GetInt(k string, defv int64) int64 {
+    if v := d[k]; v != nil {
+        //log.Printf("GetString %s %#v\n", k, v)
+        return v.(int64)
+    } else {
+        //log.Printf("GetString %s default %#v\n", k, defv)
+        return defv
+    }
+}
+
+func (d dict) GetUUID(k string) UUID {
+    return GetUUID(d[k])
+}
+
 // an array of things
 type array []interface{}
+
+func (a array) GetUUID(k int) UUID {
+    return GetUUID(a[k])
+}
 
 // a UUID
 type UUID [16]byte
 
-func (uuid *UUID) String() string {
-    return fmt.Sprintf("%x", uuid)
+func (uuid UUID) String() string {
+    return fmt.Sprintf("%x", [16]byte(uuid))
+}
+
+func GetUUID(v interface{}) UUID {
+    if v == nil {
+        return UUID{}
+    }
+
+    if uuid, ok := v.(UUID); ok {
+        return uuid
+    }
+
+    if bytes, ok := v.([]byte); ok {
+        uuid := UUID{}
+
+        for i, b := range bytes {
+            uuid[i] = b
+        }
+
+        return uuid
+    }
+
+    if bytes, ok := v.([]uint8); ok {
+        uuid := UUID{}
+
+        for i, b := range bytes {
+            uuid[i] = b
+        }
+
+        return uuid
+    }
+
+    log.Fatalf("invalid type for UUID: %#v", v)
+    return UUID{}
 }
 
 var (
@@ -57,17 +128,17 @@ func HandleXPCEvent(event C.xpc_object_t, p unsafe.Pointer) {
 			// the connection is in an invalid state, and you do not need to
 			// call xpc_connection_cancel(). Just tear down any associated state
 			// here.
-			log.Println("connection invalid")
+			//log.Println("connection invalid")
 			eh(nil, CONNECTION_INVALID)
 		} else if event == C.ERROR_CONNECTION_INTERRUPTED {
-			log.Println("connection interrupted")
+			//log.Println("connection interrupted")
 			eh(nil, CONNECTION_INTERRUPTED)
 		} else if event == C.ERROR_CONNECTION_TERMINATED {
 			// Handle per-connection termination cleanup.
-			log.Println("connection terminated")
+			//log.Println("connection terminated")
 			eh(nil, CONNECTION_TERMINATED)
 		} else {
-			log.Println("got some error", event)
+			//log.Println("got some error", event)
 			eh(nil, fmt.Errorf("%v", event))
 		}
 	} else {

@@ -20,10 +20,10 @@ var STATES = []string{"unknown", "resetting", "unsupported", "unauthorized", "po
 
 type Advertisement struct {
 	localName        string
-	txPowerLevel     int
+	txPowerLevel     int64
 	manufacturerData []byte
 	serviceData      []byte
-	serviceUuids     []UUID
+	serviceUuids     []string
 }
 
 type Peripheral struct {
@@ -47,7 +47,7 @@ func (ble *BLE) eventHandler(event dict, err error) {
 	id := event["kCBMsgId"].(int64)
 	args := event["kCBMsgArgs"].(dict) // what happens if there are no args ?
 
-	log.Printf("event: %v %v\n", id, args)
+	log.Printf("event: %v %#v\n", id, args)
 
 	switch id {
 	case 6: // state change
@@ -69,6 +69,35 @@ func (ble *BLE) eventHandler(event dict, err error) {
 		} else {
 			log.Println("event: advertisingStop")
 		}
+
+        case 37:
+                advdata := args["kCBMsgArgAdvertisementData"].(dict)
+                if len(advdata) == 0 {
+                    log.Println("event: discover with no advertisment data")
+                    break
+                }
+
+                devuuid := args["kCBMsgArgDeviceUUID"].(UUID).String()
+
+                advertisment := Advertisement{
+                    localName: advdata.GetString("kCBAdvDataLocalName", args.GetString("kCBMsgArgName", "")),
+                    txPowerLevel: advdata.GetInt("kCBAdvDataTxPowerLevel", 0),
+                    manufacturerData: advdata.GetBytes("kCBAdvDataManufacturerData", nil),
+                    serviceData: []byte{},
+                    serviceUuids: []string{},
+                }
+
+                rssi := args.GetInt("kCBMsgArgRssi", 0)
+
+                // XXX: some more stuff to do
+                if uuids, ok := advdata["kCBAdvDataServiceUUIDs"]; ok {
+                    log.Println("got service uuids:", uuids)
+                    for _, uuid := range uuids.(array) {
+                        advertisment.serviceUuids = append(advertisment.serviceUuids, GetUUID(uuid).String())
+                    }
+                }
+
+                log.Println("event: discover", devuuid, advertisment, rssi)
 	}
 }
 
@@ -87,8 +116,8 @@ func (ble *BLE) Init() {
 func (ble *BLE) StartAdvertising(name string, serviceUuids []UUID) {
 	uuids := []string{}
 
-	for uuid := range serviceUuids {
-		uuids = append(uuids, fmt.Sprintf("%x", uuid))
+	for _, uuid := range serviceUuids {
+		uuids = append(uuids, uuid.String())
 	}
 
 	ble.sendCBMsg(8, dict{"kCBAdvDataLocalName": name, "kCBAdvDataServiceUUIDs": uuids})
@@ -108,8 +137,8 @@ func (ble *BLE) StopAdvertising() {
 func (ble *BLE) StartScanning(serviceUuids []UUID, allowDuplicates bool) {
 	uuids := []string{}
 
-	for uuid := range serviceUuids {
-		uuids = append(uuids, fmt.Sprintf("%x", uuid))
+	for _, uuid := range serviceUuids {
+		uuids = append(uuids, uuid.String())
 	}
 
 	args := dict{"kCBMsgArgUUIDs": uuids}
