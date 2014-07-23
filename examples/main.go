@@ -1,34 +1,44 @@
 package main
 
 import (
-        "log"
-        "time"
+	"flag"
+	"log"
+	"time"
 
 	"../../goble"
 )
 
 func main() {
+	advertise := flag.Int("advertise", 5, "Duration of advertising")
+	scan := flag.Int("scan", 10, "Duration of scanning")
+
+	flag.Parse()
+
 	ble := goble.NewBLE()
 
-        log.Println("Init...")
+	log.Println("Init...")
 	ble.Init()
 
-        time.Sleep(1 * time.Second)
-        log.Println("Start Advertising...")
-        ble.StartAdvertising("gobble", []goble.UUID{})
+	if *advertise > 0 {
+		time.Sleep(1 * time.Second)
+		log.Println("Start Advertising...")
+		ble.StartAdvertising("gobble", []goble.UUID{})
 
-        time.Sleep(5 * time.Second)
-        log.Println("Stop Advertising...")
-        ble.StopAdvertising()
+		time.Sleep(time.Duration(*advertise) * time.Second)
+		log.Println("Stop Advertising...")
+		ble.StopAdvertising()
+	}
 
-        time.Sleep(1 * time.Second)
-        log.Println("Start Scanning...")
-        ble.StartScanning([]goble.UUID{}, true)
+	if *scan > 0 {
+		time.Sleep(1 * time.Second)
+		log.Println("Start Scanning...")
+		ble.StartScanning([]goble.UUID{}, true)
 
-        time.Sleep(10 * time.Second)
-        log.Println("Stop Scanning...")
-        ble.StopScanning()
+		time.Sleep(time.Duration(*scan) * time.Second)
+		log.Println("Stop Scanning...")
+		ble.StopScanning()
+	}
 
-        time.Sleep(2 * time.Second)
-        log.Println("Goodbye!")
+	time.Sleep(2 * time.Second)
+	log.Println("Goodbye!")
 }
