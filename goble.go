@@ -18,27 +18,34 @@ import (
 
 var STATES = []string{"unknown", "resetting", "unsupported", "unauthorized", "poweredOff", "poweredOn"}
 
+type ServiceData struct {
+	uuid string
+	data []byte
+}
+
 type Advertisement struct {
 	localName        string
 	txPowerLevel     int64
 	manufacturerData []byte
-	serviceData      []byte
+	serviceData      []ServiceData
 	serviceUuids     []string
 }
 
 type Peripheral struct {
-	uuid          UUID
+	uuid          string
 	advertisement Advertisement
-	rssi          int
+	rssi          int64
 }
 
 type BLE struct {
-	conn C.xpc_connection_t
+	conn        C.xpc_connection_t
+	peripherals map[string]Peripheral
 }
 
 func NewBLE() *BLE {
 	ble := BLE{}
 	ble.conn = XpcConnect(ble.eventHandler)
+	ble.peripherals = map[string]Peripheral{}
 	return &ble
 }
 
@@ -70,34 +77,55 @@ func (ble *BLE) eventHandler(event dict, err error) {
 			log.Println("event: advertisingStop")
 		}
 
-        case 37:
-                advdata := args["kCBMsgArgAdvertisementData"].(dict)
-                if len(advdata) == 0 {
-                    log.Println("event: discover with no advertisment data")
-                    break
-                }
+	case 37:
+		advdata := args["kCBMsgArgAdvertisementData"].(dict)
+		if len(advdata) == 0 {
+			log.Println("event: discover with no advertisment data")
+			break
+		}
 
-                devuuid := args["kCBMsgArgDeviceUUID"].(UUID).String()
+		devuuid := args["kCBMsgArgDeviceUUID"].(UUID).String()
 
-                advertisment := Advertisement{
-                    localName: advdata.GetString("kCBAdvDataLocalName", args.GetString("kCBMsgArgName", "")),
-                    txPowerLevel: advdata.GetInt("kCBAdvDataTxPowerLevel", 0),
-                    manufacturerData: advdata.GetBytes("kCBAdvDataManufacturerData", nil),
-                    serviceData: []byte{},
-                    serviceUuids: []string{},
-                }
+		advertisement := Advertisement{
+			localName:        advdata.GetString("kCBAdvDataLocalName", args.GetString("kCBMsgArgName", "")),
+			txPowerLevel:     advdata.GetInt("kCBAdvDataTxPowerLevel", 0),
+			manufacturerData: advdata.GetBytes("kCBAdvDataManufacturerData", nil),
+			serviceData:      []ServiceData{},
+			serviceUuids:     []string{},
+		}
 
-                rssi := args.GetInt("kCBMsgArgRssi", 0)
+		rssi := args.GetInt("kCBMsgArgRssi", 0)
 
-                // XXX: some more stuff to do
-                if uuids, ok := advdata["kCBAdvDataServiceUUIDs"]; ok {
-                    log.Println("got service uuids:", uuids)
-                    for _, uuid := range uuids.(array) {
-                        advertisment.serviceUuids = append(advertisment.serviceUuids, GetUUID(uuid).String())
-                    }
-                }
+		if uuids, ok := advdata["kCBAdvDataServiceUUIDs"]; ok {
+			for _, uuid := range uuids.(array) {
+				advertisement.serviceUuids = append(advertisement.serviceUuids, GetUUID(uuid).String())
+			}
+		}
 
-                log.Println("event: discover", devuuid, advertisment, rssi)
+		if sdata, ok := advdata["kCBAdvDataServiceUUIDs"]; ok {
+			log.Println("got service data:", sdata)
+			for _, data := range sdata.(array) {
+				bytes := data.([]byte)
+				sd := ServiceData{
+					uuid: fmt.Sprintf("%x", bytes[0]),
+					data: bytes[1:],
+				}
+
+				advertisement.serviceData = append(advertisement.serviceData, sd)
+			}
+		}
+
+		/*
+		   Right now ble is nil, so this will crash!
+
+		   ble.peripherals[devuuid] = Peripheral{
+		       uuid: devuuid,
+		       advertisement: advertisement,
+		       rssi: rssi,
+		   }
+		*/
+
+		log.Println("event: discover", devuuid, advertisement, rssi)
 	}
 }
 
