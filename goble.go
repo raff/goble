@@ -102,7 +102,7 @@ func (ble *BLE) HandleXpcEvent(event dict, err error) {
 			}
 		}
 
-		if sdata, ok := advdata["kCBAdvDataServiceUUIDs"]; ok {
+		if sdata, ok := advdata["kCBAdvDataServiceData"]; ok {
 			log.Println("got service data:", sdata)
 			for i, data := range sdata.(array) {
 				bytes := data.([]byte)
