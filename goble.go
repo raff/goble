@@ -40,6 +40,7 @@ type Peripheral struct {
 type BLE struct {
 	conn        C.xpc_connection_t
 	peripherals map[string]Peripheral
+	verbose     bool
 }
 
 func NewBLE() *BLE {
@@ -48,13 +49,19 @@ func NewBLE() *BLE {
 	return ble
 }
 
+func (ble *BLE) SetVerbose(v bool) {
+	ble.verbose = v
+}
+
 // process BLE events and asynchronous errors
 // (implements XpcEventHandler)
 func (ble *BLE) HandleXpcEvent(event dict, err error) {
 	id := event["kCBMsgId"].(int64)
 	args := event["kCBMsgArgs"].(dict) // what happens if there are no args ?
 
-	log.Printf("event: %v %#v\n", id, args)
+	if ble.verbose {
+		log.Printf("event: %v %#v\n", id, args)
+	}
 
 	switch id {
 	case 6: // state change
@@ -129,6 +136,16 @@ func (ble *BLE) HandleXpcEvent(event dict, err error) {
 	case 40:
 		deviceUuid := args["kCBMsgArgDeviceUUID"].(UUID)
 		log.Println("event: disconnect", deviceUuid.String())
+
+	case 54:
+		deviceUuid := args["kCBMsgArgDeviceUUID"].(UUID)
+		rssi := args["kCBMsgArgData"].(int64)
+
+		if p, ok := ble.peripherals[deviceUuid.String()]; ok {
+			p.rssi = rssi
+		}
+
+		log.Println("event: rssiUpdate", deviceUuid.String(), rssi)
 	}
 }
 
@@ -203,6 +220,16 @@ func (ble *BLE) Disconnect(deviceUuid UUID) {
 	uuid := deviceUuid.String()
 	if p, ok := ble.peripherals[uuid]; ok {
 		ble.sendCBMsg(32, dict{"kCBMsgArgDeviceUUID": p.uuid})
+	} else {
+		log.Println("no peripheral")
+	}
+}
+
+// update rssi
+func (ble *BLE) UpdateRssi(deviceUuid UUID) {
+	uuid := deviceUuid.String()
+	if p, ok := ble.peripherals[uuid]; ok {
+		ble.sendCBMsg(43, dict{"kCBMsgArgDeviceUUID": p.uuid})
 	} else {
 		log.Println("no peripheral")
 	}
