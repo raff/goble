@@ -12,7 +12,7 @@ func main() {
 	verbose := flag.Bool("verbose", false, "dump all events")
 	advertise := flag.Int("advertise", 5, "Duration of advertising")
 	scan := flag.Int("scan", 10, "Duration of scanning")
-	uuid := flag.String("uuid", "", "device uuid")
+	uuid := flag.String("uuid", "" /*"8189c6b0130211e491910800200c9a66",*/, "device uuid")
 	connect := flag.Bool("connect", false, "connect to device")
 	disconnect := flag.Bool("disconnect", false, "disconnect from device")
 	rssi := flag.Bool("rssi", false, "update rssi for device")
@@ -27,9 +27,15 @@ func main() {
 	ble.Init()
 
 	if *advertise > 0 {
+		uuids := []goble.UUID{}
+
+		if len(*uuid) > 0 {
+			uuids = append(uuids, goble.MakeUUID(*uuid))
+		}
+
 		time.Sleep(1 * time.Second)
 		log.Println("Start Advertising...")
-		ble.StartAdvertising("gobble", []goble.UUID{})
+		ble.StartAdvertising("gobble", uuids)
 
 		time.Sleep(time.Duration(*advertise) * time.Second)
 		log.Println("Stop Advertising...")
