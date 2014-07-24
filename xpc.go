@@ -124,12 +124,10 @@ func XpcConnect(service string, eh XpcEventHandler) C.xpc_connection_t {
 
 //export handleXpcEvent
 func handleXpcEvent(event C.xpc_object_t, p unsafe.Pointer) {
+	//log.Printf("handleXpcEvent %#v %#v\n", event, p)
+
 	t := C.xpc_get_type(event)
-
-	log.Printf("handleXpcEvent %#v %#v\n", event, p)
-
 	eh := *((*XpcEventHandler)(p))
-	log.Printf("handleXpcEvent %#v %#v\n", p, eh)
 
 	if t == C.TYPE_ERROR {
 		if event == C.ERROR_CONNECTION_INVALID {

@@ -80,7 +80,7 @@ func (ble *BLE) HandleXpcEvent(event dict, err error) {
 	case 37:
 		advdata := args["kCBMsgArgAdvertisementData"].(dict)
 		if len(advdata) == 0 {
-			log.Println("event: discover with no advertisment data")
+			//log.Println("event: discover with no advertisment data")
 			break
 		}
 
@@ -103,10 +103,8 @@ func (ble *BLE) HandleXpcEvent(event dict, err error) {
 		}
 
 		if sdata, ok := advdata["kCBAdvDataServiceData"]; ok {
-			log.Println("got service data:", sdata)
-			for i, data := range sdata.(array) {
+			for _, data := range sdata.(array) {
 				bytes := data.([]byte)
-				log.Println("service data", i, bytes)
 				sd := ServiceData{
 					uuid: fmt.Sprintf("%x", bytes[0]),
 					data: bytes[1:],
