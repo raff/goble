@@ -24,6 +24,9 @@ xpc_object_t ERROR_CONNECTION_INVALID = (xpc_object_t) XPC_ERROR_CONNECTION_INVA
 xpc_object_t ERROR_CONNECTION_INTERRUPTED = (xpc_object_t) XPC_ERROR_CONNECTION_INTERRUPTED;
 xpc_object_t ERROR_CONNECTION_TERMINATED = (xpc_object_t) XPC_ERROR_TERMINATION_IMMINENT;
 
+const ptr_to_uuid_t ptr_to_uuid(void *p) { return (ptr_to_uuid_t)p; }
+
+
 //
 // connect to XPC service
 //

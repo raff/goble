@@ -193,6 +193,8 @@ func (ble *BLE) Connect(deviceUuid UUID) {
 	if p, ok := ble.peripherals[uuid]; ok {
 		ble.sendCBMsg(31, dict{"kCBMsgArgOptions": dict{"kCBConnectOptionNotifyOnDisconnection": 1},
 			"kCBMsgArgDeviceUUID": p.uuid})
+	} else {
+		log.Println("no peripheral")
 	}
 }
 
@@ -201,5 +203,7 @@ func (ble *BLE) Disconnect(deviceUuid UUID) {
 	uuid := deviceUuid.String()
 	if p, ok := ble.peripherals[uuid]; ok {
 		ble.sendCBMsg(32, dict{"kCBMsgArgDeviceUUID": p.uuid})
+	} else {
+		log.Println("no peripheral")
 	}
 }

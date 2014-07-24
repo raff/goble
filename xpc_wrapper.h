@@ -24,4 +24,9 @@ extern void XpcArrayApply(void *, xpc_object_t);
 extern void XpcDictApply(void *, xpc_object_t);
 extern void XpcUUIDGetBytes(void *, xpc_object_t);
 
+// the input type for xpc_uuid_create should be uuid_t but CGO instists on unsigned char *
+// typedef uuid_t * ptr_to_uuid_t;
+typedef unsigned char * ptr_to_uuid_t;
+extern const ptr_to_uuid_t ptr_to_uuid(void *p);
+
 #endif

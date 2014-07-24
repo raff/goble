@@ -11,6 +11,9 @@ import (
 func main() {
 	advertise := flag.Int("advertise", 5, "Duration of advertising")
 	scan := flag.Int("scan", 10, "Duration of scanning")
+	uuid := flag.String("uuid", "", "device uuid")
+	connect := flag.Bool("connect", false, "connect to device")
+	disconnect := flag.Bool("disconnect", false, "disconnect from device")
 
 	flag.Parse()
 
@@ -39,6 +42,22 @@ func main() {
 		ble.StopScanning()
 	}
 
-	time.Sleep(2 * time.Second)
+	if *connect {
+		time.Sleep(1 * time.Second)
+		uuid := goble.MakeUUID(*uuid)
+		log.Println("Connect", uuid)
+		ble.Connect(uuid)
+		time.Sleep(5 * time.Second)
+	}
+
+	if *disconnect {
+		time.Sleep(1 * time.Second)
+		uuid := goble.MakeUUID(*uuid)
+		log.Println("Disconnect", uuid)
+		ble.Disconnect(uuid)
+		time.Sleep(5 * time.Second)
+	}
+
+	time.Sleep(5 * time.Second)
 	log.Println("Goodbye!")
 }

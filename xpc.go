@@ -69,6 +69,15 @@ func (a array) GetUUID(k int) UUID {
 // a UUID
 type UUID [16]byte
 
+func MakeUUID(s string) UUID {
+	var sl []byte
+	fmt.Sscanf(s, "%32x", &sl)
+
+	var uuid [16]byte
+	copy(uuid[:], sl)
+	return UUID(uuid)
+}
+
 func (uuid UUID) String() string {
 	return fmt.Sprintf("%x", [16]byte(uuid))
 }
@@ -110,6 +119,8 @@ var (
 	CONNECTION_INVALID     = errors.New("connection invalid")
 	CONNECTION_INTERRUPTED = errors.New("connection interrupted")
 	CONNECTION_TERMINATED  = errors.New("connection terminated")
+
+	TYPE_OF_UUID = r.TypeOf(UUID{})
 )
 
 type XpcEventHandler interface {
@@ -190,14 +201,20 @@ func valueToXpc(val r.Value) C.xpc_object_t {
 		}
 
 	case r.Array, r.Slice:
-		xv = C.xpc_array_create(nil, 0)
-		l := val.Len()
+		if val.Type() == TYPE_OF_UUID {
+			var uuid [16]byte
+			r.Copy(r.ValueOf(uuid[:]), val)
+			xv = C.xpc_uuid_create(C.ptr_to_uuid(unsafe.Pointer(&uuid[0])))
+		} else {
+			xv = C.xpc_array_create(nil, 0)
+			l := val.Len()
 
-		for i := 0; i < l; i++ {
-			v := valueToXpc(val.Index(i))
-			C.xpc_array_append_value(xv, v)
-			if v != nil {
-				C.xpc_release(v)
+			for i := 0; i < l; i++ {
+				v := valueToXpc(val.Index(i))
+				C.xpc_array_append_value(xv, v)
+				if v != nil {
+					C.xpc_release(v)
+				}
 			}
 		}
 
