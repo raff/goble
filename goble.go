@@ -84,7 +84,7 @@ func (ble *BLE) HandleXpcEvent(event dict, err error) {
 			log.Println("event: advertisingStop")
 		}
 
-	case 37:
+	case 37: // discover
 		advdata := args["kCBMsgArgAdvertisementData"].(dict)
 		if len(advdata) == 0 {
 			//log.Println("event: discover with no advertisment data")
@@ -129,15 +129,15 @@ func (ble *BLE) HandleXpcEvent(event dict, err error) {
 
 		log.Println("event: discover", deviceUuid.String(), advertisement, rssi)
 
-	case 38:
+	case 38: // connect
 		deviceUuid := args["kCBMsgArgDeviceUUID"].(UUID)
 		log.Println("event: connect", deviceUuid.String())
 
-	case 40:
+	case 40: // disconnect
 		deviceUuid := args["kCBMsgArgDeviceUUID"].(UUID)
 		log.Println("event: disconnect", deviceUuid.String())
 
-	case 54:
+	case 54: // rssiUpdate
 		deviceUuid := args["kCBMsgArgDeviceUUID"].(UUID)
 		rssi := args["kCBMsgArgData"].(int64)
 
@@ -162,13 +162,7 @@ func (ble *BLE) Init() {
 
 // start advertising
 func (ble *BLE) StartAdvertising(name string, serviceUuids []UUID) {
-	uuids := []string{}
-
-	for _, uuid := range serviceUuids {
-		uuids = append(uuids, uuid.String())
-	}
-
-	ble.sendCBMsg(8, dict{"kCBAdvDataLocalName": name, "kCBAdvDataServiceUUIDs": uuids})
+	ble.sendCBMsg(8, dict{"kCBAdvDataLocalName": name, "kCBAdvDataServiceUUIDs": serviceUuids})
 }
 
 // start advertising as IBeacon
