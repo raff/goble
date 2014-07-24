@@ -32,7 +32,7 @@ type Advertisement struct {
 }
 
 type Peripheral struct {
-	uuid          string
+	uuid          UUID
 	advertisement Advertisement
 	rssi          int64
 }
@@ -84,7 +84,7 @@ func (ble *BLE) HandleXpcEvent(event dict, err error) {
 			break
 		}
 
-		devuuid := args["kCBMsgArgDeviceUUID"].(UUID).String()
+		deviceUuid := args["kCBMsgArgDeviceUUID"].(UUID)
 
 		advertisement := Advertisement{
 			localName:        advdata.GetString("kCBAdvDataLocalName", args.GetString("kCBMsgArgName", "")),
@@ -114,13 +114,21 @@ func (ble *BLE) HandleXpcEvent(event dict, err error) {
 			}
 		}
 
-		ble.peripherals[devuuid] = Peripheral{
-			uuid:          devuuid,
+		ble.peripherals[deviceUuid.String()] = Peripheral{
+			uuid:          deviceUuid,
 			advertisement: advertisement,
 			rssi:          rssi,
 		}
 
-		log.Println("event: discover", devuuid, advertisement, rssi)
+		log.Println("event: discover", deviceUuid.String(), advertisement, rssi)
+
+	case 38:
+		deviceUuid := args["kCBMsgArgDeviceUUID"].(UUID)
+		log.Println("event: connect", deviceUuid.String())
+
+	case 40:
+		deviceUuid := args["kCBMsgArgDeviceUUID"].(UUID)
+		log.Println("event: disconnect", deviceUuid.String())
 	}
 }
 
@@ -177,4 +185,21 @@ func (ble *BLE) StartScanning(serviceUuids []UUID, allowDuplicates bool) {
 // stop scanning
 func (ble *BLE) StopScanning() {
 	ble.sendCBMsg(30, nil)
+}
+
+// connect
+func (ble *BLE) Connect(deviceUuid UUID) {
+	uuid := deviceUuid.String()
+	if p, ok := ble.peripherals[uuid]; ok {
+		ble.sendCBMsg(31, dict{"kCBMsgArgOptions": dict{"kCBConnectOptionNotifyOnDisconnection": 1},
+			"kCBMsgArgDeviceUUID": p.uuid})
+	}
+}
+
+// disconnect
+func (ble *BLE) Disconnect(deviceUuid UUID) {
+	uuid := deviceUuid.String()
+	if p, ok := ble.peripherals[uuid]; ok {
+		ble.sendCBMsg(32, dict{"kCBMsgArgDeviceUUID": p.uuid})
+	}
 }
