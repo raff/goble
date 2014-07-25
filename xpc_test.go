@@ -19,6 +19,8 @@ func TestConvertUUID(t *testing.T) {
 	xv := goToXpc(uuid)
 	v := xpcToGo(xv)
 
+        xpc_release(xv)
+
 	uuid2 := CheckUUID(t, v)
 
 	if uuid != uuid2 {
@@ -31,6 +33,8 @@ func TestConvertSlice(t *testing.T) {
 
 	xv := goToXpc(arr)
 	v := xpcToGo(xv)
+
+        xpc_release(xv)
 
 	if arr2, ok := v.(array); !ok {
 		t.Errorf("not an array: %#v\n", v)
@@ -50,6 +54,8 @@ func TestConvertSliceUUID(t *testing.T) {
 
 	xv := goToXpc(arr)
 	v := xpcToGo(xv)
+
+        xpc_release(xv)
 
 	if arr2, ok := v.(array); !ok {
 		t.Errorf("not an array: %#v\n", v)
@@ -77,15 +83,24 @@ func TestConvertMap(t *testing.T) {
 	xv := goToXpc(d)
 	v := xpcToGo(xv)
 
+        xpc_release(xv)
+
 	if d2, ok := v.(dict); !ok {
 		t.Errorf("not a map: %#v", v)
 	} else if len(d) != len(d2) {
 		t.Errorf("expected %#v got %#v\n", d, d2)
 	} else {
+		fail := false
+
 		for k, v := range d {
 			if v != d2[k] {
 				t.Logf("expected map[%s]: %#v got %#v\n", k, v, d2[k])
+				fail = true
 			}
+		}
+
+		if fail {
+			t.Error("test failed")
 		}
 	}
 }

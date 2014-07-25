@@ -277,3 +277,8 @@ func xpcToGo(v C.xpc_object_t) interface{} {
 
 	return nil
 }
+
+// xpc_release is needed by tests, since they can't use CGO
+func xpc_release(xv C.xpc_object_t) {
+    C.xpc_release(xv)
+}
