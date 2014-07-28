@@ -120,7 +120,8 @@ var (
 	CONNECTION_INTERRUPTED = errors.New("connection interrupted")
 	CONNECTION_TERMINATED  = errors.New("connection terminated")
 
-	TYPE_OF_UUID = r.TypeOf(UUID{})
+	TYPE_OF_UUID  = r.TypeOf(UUID{})
+	TYPE_OF_BYTES = r.TypeOf([]byte{})
 )
 
 type XpcEventHandler interface {
@@ -202,9 +203,13 @@ func valueToXpc(val r.Value) C.xpc_object_t {
 
 	case r.Array, r.Slice:
 		if val.Type() == TYPE_OF_UUID {
+			// array of bytes
 			var uuid [16]byte
 			r.Copy(r.ValueOf(uuid[:]), val)
 			xv = C.xpc_uuid_create(C.ptr_to_uuid(unsafe.Pointer(&uuid[0])))
+		} else if val.Type() == TYPE_OF_BYTES {
+			// slice of bytes
+			xv = C.xpc_data_create(unsafe.Pointer(val.Pointer()), C.size_t(val.Len()))
 		} else {
 			xv = C.xpc_array_create(nil, 0)
 			l := val.Len()
