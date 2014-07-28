@@ -7,6 +7,8 @@ package goble
 import "C"
 
 import (
+	"bytes"
+	"encoding/binary"
 	"fmt"
 	"log"
 	"time"
@@ -174,9 +176,20 @@ func (ble *BLE) StartAdvertising(name string, serviceUuids []UUID) {
 	ble.sendCBMsg(8, dict{"kCBAdvDataLocalName": name, "kCBAdvDataServiceUUIDs": uuids})
 }
 
-// start advertising as IBeacon
-func (ble *BLE) StartAdvertisingIBeacon(name string, data []byte) {
+// start advertising as IBeacon (raw data)
+func (ble *BLE) StartAdvertisingIBeaconData(data []byte) {
 	ble.sendCBMsg(8, dict{"kCBAdvDataAppleBeaconKey": data})
+}
+
+// start advertising as IBeacon
+func (ble *BLE) StartAdvertisingIBeacon(uuid UUID, major, minor uint16, measuredPower int8) {
+	buf := new(bytes.Buffer)
+	binary.Write(buf, binary.BigEndian, uuid[:])
+	binary.Write(buf, binary.BigEndian, major)
+	binary.Write(buf, binary.BigEndian, minor)
+	binary.Write(buf, binary.BigEndian, measuredPower)
+
+	ble.sendCBMsg(8, dict{"kCBAdvDataAppleBeaconKey": buf.Bytes()})
 }
 
 // stop advertising
