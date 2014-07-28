@@ -201,11 +201,9 @@ func valueToXpc(val r.Value) C.xpc_object_t {
 		}
 
 	case r.Array, r.Slice:
-                log.Println("array or slice", val)
 		if val.Type() == TYPE_OF_UUID {
 			var uuid [16]byte
 			r.Copy(r.ValueOf(uuid[:]), val)
-
 			xv = C.xpc_uuid_create(C.ptr_to_uuid(unsafe.Pointer(&uuid[0])))
 		} else {
 			xv = C.xpc_array_create(nil, 0)
@@ -213,7 +211,6 @@ func valueToXpc(val r.Value) C.xpc_object_t {
 
 			for i := 0; i < l; i++ {
 				v := valueToXpc(val.Index(i))
-                                log.Printf("append %#v\n", xpcToGo(v))
 				C.xpc_array_append_value(xv, v)
 				if v != nil {
 					C.xpc_release(v)
@@ -283,5 +280,5 @@ func xpcToGo(v C.xpc_object_t) interface{} {
 
 // xpc_release is needed by tests, since they can't use CGO
 func xpc_release(xv C.xpc_object_t) {
-    C.xpc_release(xv)
+	C.xpc_release(xv)
 }

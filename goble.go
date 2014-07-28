@@ -152,9 +152,9 @@ func (ble *BLE) HandleXpcEvent(event dict, err error) {
 // send a message to Blued
 func (ble *BLE) sendCBMsg(id int, args dict) {
 	message := dict{"kCBMsgId": id, "kCBMsgArgs": args}
-        if ble.verbose {
+	if ble.verbose {
 		log.Printf("sendCBMsg %#v\n", message)
-        }
+	}
 
 	C.XpcSendMessage(ble.conn, goToXpc(message), true)
 }
@@ -167,10 +167,10 @@ func (ble *BLE) Init() {
 
 // start advertising
 func (ble *BLE) StartAdvertising(name string, serviceUuids []UUID) {
-        uuids := make([]string, len(serviceUuids))
-        for i, uuid := range serviceUuids {
-            uuids[i] = uuid.String()
-        }
+	uuids := make([]string, len(serviceUuids))
+	for i, uuid := range serviceUuids {
+		uuids[i] = uuid.String()
+	}
 	ble.sendCBMsg(8, dict{"kCBAdvDataLocalName": name, "kCBAdvDataServiceUUIDs": uuids})
 }
 
