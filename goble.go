@@ -20,6 +20,19 @@ import (
 
 var STATES = []string{"unknown", "resetting", "unsupported", "unauthorized", "poweredOff", "poweredOn"}
 
+type Property int
+
+const (
+	Broadcast Property = iota
+	Read
+	WriteWithoutResponse
+	Write
+	Notify
+	Indicate
+	AuthenticatedSignedWrites
+	ExtendedProperties
+)
+
 type ServiceData struct {
 	uuid string
 	data []byte
@@ -37,6 +50,21 @@ type Peripheral struct {
 	uuid          UUID
 	advertisement Advertisement
 	rssi          int64
+}
+
+// GATT Descriptor
+type Descriptor struct {
+	uuid  UUID
+	value []byte
+}
+
+// GATT Charachteristic
+type Characteristic struct {
+	uuid        UUID
+	properties  []Property
+	secure      []Property
+	descriptors []Descriptor
+	value       []byte
 }
 
 type BLE struct {
