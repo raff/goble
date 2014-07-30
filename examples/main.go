@@ -19,10 +19,11 @@ func main() {
 	disconnect := flag.Bool("disconnect", false, "disconnect from device")
 	rssi := flag.Bool("rssi", false, "update rssi for device")
 	ibeacon := flag.Int("ibeacon", 0, "Duration of IBeacon advertising")
+	remove := flag.Bool("remove", false, "Remove all services")
 
 	flag.Parse()
 
-	ble := goble.NewBLE()
+	ble := goble.New()
 
 	ble.SetVerbose(*verbose)
 
@@ -102,6 +103,13 @@ func main() {
 		uuid := goble.MakeUUID(*uuid)
 		log.Println("Disconnect", uuid)
 		ble.Disconnect(uuid)
+		time.Sleep(5 * time.Second)
+	}
+
+	if *remove {
+		time.Sleep(1 * time.Second)
+		log.Println("Remove all services")
+		ble.RemoveServices()
 		time.Sleep(5 * time.Second)
 	}
 

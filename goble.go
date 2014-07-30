@@ -23,14 +23,14 @@ var STATES = []string{"unknown", "resetting", "unsupported", "unauthorized", "po
 type Property int
 
 const (
-	Broadcast Property = iota
-	Read
-	WriteWithoutResponse
-	Write
-	Notify
-	Indicate
-	AuthenticatedSignedWrites
-	ExtendedProperties
+	Broadcast                 Property = 1 << iota
+	Read                               = 1 << iota
+	WriteWithoutResponse               = 1 << iota
+	Write                              = 1 << iota
+	Notify                             = 1 << iota
+	Indicate                           = 1 << iota
+	AuthenticatedSignedWrites          = 1 << iota
+	ExtendedProperties                 = 1 << iota
 )
 
 type ServiceData struct {
@@ -58,22 +58,31 @@ type Descriptor struct {
 	value []byte
 }
 
-// GATT Charachteristic
+// GATT Characteristic
 type Characteristic struct {
 	uuid        UUID
-	properties  []Property
-	secure      []Property
+	properties  Property
+	secure      Property
 	descriptors []Descriptor
 	value       []byte
 }
 
-type BLE struct {
-	conn        C.xpc_connection_t
-	peripherals map[string]Peripheral
-	verbose     bool
+// GATT Service
+type Service struct {
+	uuid            UUID
+	characteristics []Characteristic
 }
 
-func NewBLE() *BLE {
+type BLE struct {
+	conn    C.xpc_connection_t
+	verbose bool
+
+	peripherals            map[string]Peripheral
+	attributes             array
+	lastServiceAttributeId int
+}
+
+func New() *BLE {
 	ble := &BLE{peripherals: map[string]Peripheral{}}
 	ble.conn = XpcConnect("com.apple.blued", ble)
 	return ble
@@ -276,5 +285,107 @@ func (ble *BLE) UpdateRssi(deviceUuid UUID) {
 		ble.sendCBMsg(43, dict{"kCBMsgArgDeviceUUID": p.uuid})
 	} else {
 		log.Println("no peripheral")
+	}
+}
+
+// remove all services
+func (ble *BLE) RemoveServices() {
+	ble.sendCBMsg(12, nil)
+}
+
+// set services
+func (ble *BLE) SetServices(services []Service) {
+	ble.sendCBMsg(12, nil) // remove all services
+	ble.attributes = array{nil}
+
+	attributeId := 1
+
+	for _, service := range services {
+		arg := dict{
+			"kCBMsgArgAttributeID":     attributeId,
+			"kCBMsgArgAttributeIDs":    []int{},
+			"kCBMsgArgCharacteristics": nil,
+			"kCBMsgArgType":            1, // 1 => primary, 0 => excluded
+			"kCBMsgArgUUID":            service.uuid.String(),
+		}
+
+		ble.attributes = append(ble.attributes, service)
+		ble.lastServiceAttributeId = attributeId
+		attributeId += 1
+
+		characteristics := array{}
+
+		for _, characteristic := range service.characteristics {
+			properties := 0
+			permissions := 0
+
+			if Read&characteristic.properties != 0 {
+				properties |= 0x02
+
+				if Read&characteristic.secure != 0 {
+					permissions |= 0x04
+				} else {
+					permissions |= 0x01
+				}
+			}
+
+			if WriteWithoutResponse&characteristic.properties != 0 {
+				properties |= 0x04
+
+				if WriteWithoutResponse&characteristic.secure != 0 {
+					permissions |= 0x08
+				} else {
+					permissions |= 0x02
+				}
+			}
+
+			if Write&characteristic.properties != 0 {
+				properties |= 0x08
+
+				if WriteWithoutResponse&characteristic.secure != 0 {
+					permissions |= 0x08
+				} else {
+					permissions |= 0x02
+				}
+			}
+
+			if Notify&characteristic.properties != 0 {
+				if Notify&characteristic.secure != 0 {
+					properties |= 0x100
+				} else {
+					properties |= 0x10
+				}
+			}
+
+			if Indicate&characteristic.properties != 0 {
+				if Indicate&characteristic.secure != 0 {
+					properties |= 0x200
+				} else {
+					properties |= 0x20
+				}
+			}
+
+			descriptors := array{}
+			for _, descriptor := range characteristic.descriptors {
+				descriptors = append(descriptors, dict{"kCBMsgArgData": descriptor.value, "kCBMsgArgUUID": descriptor.uuid.String()})
+			}
+
+			characteristicArg := dict{
+				"kCBMsgArgAttributeID":              attributeId,
+				"kCBMsgArgAttributePermissions":     permissions,
+				"kCBMsgArgCharacteristicProperties": properties,
+				"kCBMsgArgData":                     characteristic.value,
+				"kCBMsgArgDescriptors":              descriptors,
+				"kCBMsgArgUUID":                     characteristic.uuid.String(),
+			}
+
+			ble.attributes = append(ble.attributes, characteristic)
+			characteristics = append(characteristics, characteristicArg)
+
+			attributeId += 1
+		}
+
+		arg["kCBMsgArgCharacteristics"] = characteristics
+		ble.sendCBMsg(10, arg) // remove all services
 	}
 }
