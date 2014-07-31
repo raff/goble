@@ -38,6 +38,12 @@ type ServiceData struct {
 	data []byte
 }
 
+type ServiceHandle struct {
+	uuid        string
+	startHandle int64
+	endHandle   int64
+}
+
 type Advertisement struct {
 	localName        string
 	txPowerLevel     int64
@@ -50,6 +56,7 @@ type Peripheral struct {
 	uuid          UUID
 	advertisement Advertisement
 	rssi          int64
+	services      map[interface{}]ServiceHandle
 }
 
 // GATT Descriptor
@@ -77,13 +84,13 @@ type BLE struct {
 	conn    C.xpc_connection_t
 	verbose bool
 
-	peripherals            map[string]Peripheral
+	peripherals            map[string]*Peripheral
 	attributes             array
 	lastServiceAttributeId int
 }
 
 func New() *BLE {
-	ble := &BLE{peripherals: map[string]Peripheral{}}
+	ble := &BLE{peripherals: map[string]*Peripheral{}}
 	ble.conn = XpcConnect("com.apple.blued", ble)
 	return ble
 }
@@ -160,10 +167,11 @@ func (ble *BLE) HandleXpcEvent(event dict, err error) {
 			}
 		}
 
-		ble.peripherals[deviceUuid.String()] = Peripheral{
+		ble.peripherals[deviceUuid.String()] = &Peripheral{
 			uuid:          deviceUuid,
 			advertisement: advertisement,
 			rssi:          rssi,
+			services:      map[interface{}]ServiceHandle{},
 		}
 
 		log.Println("event: discover", deviceUuid.String(), advertisement, rssi)
@@ -185,6 +193,30 @@ func (ble *BLE) HandleXpcEvent(event dict, err error) {
 		}
 
 		log.Println("event: rssiUpdate", deviceUuid.String(), rssi)
+
+	case 55: // serviceDiscover
+		deviceUuid := args["kCBMsgArgDeviceUUID"].(UUID)
+		servicesUuids := []string{}
+		services := map[interface{}]ServiceHandle{}
+
+		if dservices, ok := args["kCBMsgArgServices"]; ok {
+			for _, s := range dservices.(array) {
+				service := s.(dict)
+				serviceHandle := ServiceHandle{
+					uuid:        fmt.Sprintf("%x", service["kCBMsgArgUUID"].([]byte)),
+					startHandle: service["kCBMsgArgServiceStartHandle"].(int64),
+					endHandle:   service["kCBMsgArgServiceEndHandle"].(int64)}
+
+				services[serviceHandle.uuid] = serviceHandle
+				services[serviceHandle.startHandle] = serviceHandle
+
+				servicesUuids = append(servicesUuids, serviceHandle.uuid)
+			}
+		}
+
+		ble.peripherals[deviceUuid.String()].services = services
+
+		log.Println("event: serviceDiscover", deviceUuid.String(), servicesUuids, services)
 	}
 }
 
@@ -264,7 +296,7 @@ func (ble *BLE) Connect(deviceUuid UUID) {
 		ble.sendCBMsg(31, dict{"kCBMsgArgOptions": dict{"kCBConnectOptionNotifyOnDisconnection": 1},
 			"kCBMsgArgDeviceUUID": p.uuid})
 	} else {
-		log.Println("no peripheral")
+		log.Println("no peripheral", deviceUuid)
 	}
 }
 
@@ -274,7 +306,7 @@ func (ble *BLE) Disconnect(deviceUuid UUID) {
 	if p, ok := ble.peripherals[uuid]; ok {
 		ble.sendCBMsg(32, dict{"kCBMsgArgDeviceUUID": p.uuid})
 	} else {
-		log.Println("no peripheral")
+		log.Println("no peripheral", deviceUuid)
 	}
 }
 
@@ -284,7 +316,21 @@ func (ble *BLE) UpdateRssi(deviceUuid UUID) {
 	if p, ok := ble.peripherals[uuid]; ok {
 		ble.sendCBMsg(43, dict{"kCBMsgArgDeviceUUID": p.uuid})
 	} else {
-		log.Println("no peripheral")
+		log.Println("no peripheral", deviceUuid)
+	}
+}
+
+// discover services
+func (ble *BLE) DiscoverServices(deviceUuid UUID, uuids []UUID) {
+	sUuid := deviceUuid.String()
+	if p, ok := ble.peripherals[sUuid]; ok {
+		sUuids := make([]string, len(uuids))
+		for i, uuid := range uuids {
+			sUuids[i] = uuid.String()
+		}
+		ble.sendCBMsg(44, dict{"kCBMsgArgDeviceUUID": p.uuid, "kCBMsgArgUUIDs": sUuids})
+	} else {
+		log.Println("no peripheral", deviceUuid)
 	}
 }
 

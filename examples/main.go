@@ -12,14 +12,15 @@ import (
 
 func main() {
 	verbose := flag.Bool("verbose", false, "dump all events")
-	advertise := flag.Int("advertise", 5, "Duration of advertising")
-	scan := flag.Int("scan", 10, "Duration of scanning")
+	advertise := flag.Int("advertise", 0, "Duration of advertising - 0: does not advertise")
+	ibeacon := flag.Int("ibeacon", 0, "Duration of IBeacon advertising - 0: does not advertise")
+	scan := flag.Int("scan", 10, "Duration of scanning - 0: does not scan")
 	uuid := flag.String("uuid", "", "device uuid (for ibeacon uuid,major,minor,power)")
 	connect := flag.Bool("connect", false, "connect to device")
 	disconnect := flag.Bool("disconnect", false, "disconnect from device")
 	rssi := flag.Bool("rssi", false, "update rssi for device")
-	ibeacon := flag.Int("ibeacon", 0, "Duration of IBeacon advertising")
 	remove := flag.Bool("remove", false, "Remove all services")
+	discover := flag.Bool("discover", false, "Discover services")
 
 	flag.Parse()
 
@@ -75,7 +76,7 @@ func main() {
 	if *scan > 0 {
 		time.Sleep(1 * time.Second)
 		log.Println("Start Scanning...")
-		ble.StartScanning([]goble.UUID{}, true)
+		ble.StartScanning(nil, true)
 
 		time.Sleep(time.Duration(*scan) * time.Second)
 		log.Println("Stop Scanning...")
@@ -95,6 +96,14 @@ func main() {
 		uuid := goble.MakeUUID(*uuid)
 		log.Println("UpdateRssi", uuid)
 		ble.UpdateRssi(uuid)
+		time.Sleep(5 * time.Second)
+	}
+
+	if *discover {
+		time.Sleep(1 * time.Second)
+		uuid := goble.MakeUUID(*uuid)
+		log.Println("DiscoverServices", uuid)
+		ble.DiscoverServices(uuid, nil)
 		time.Sleep(5 * time.Second)
 	}
 
