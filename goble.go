@@ -40,13 +40,13 @@ type ServiceData struct {
 
 type ServiceHandle struct {
 	uuid        string
-	startHandle int64
-	endHandle   int64
+	startHandle int
+	endHandle   int
 }
 
 type Advertisement struct {
 	localName        string
-	txPowerLevel     int64
+	txPowerLevel     int
 	manufacturerData []byte
 	serviceData      []ServiceData
 	serviceUuids     []string
@@ -55,7 +55,7 @@ type Advertisement struct {
 type Peripheral struct {
 	uuid          UUID
 	advertisement Advertisement
-	rssi          int64
+	rssi          int
 	services      map[interface{}]ServiceHandle
 }
 
@@ -102,8 +102,8 @@ func (ble *BLE) SetVerbose(v bool) {
 // process BLE events and asynchronous errors
 // (implements XpcEventHandler)
 func (ble *BLE) HandleXpcEvent(event dict, err error) {
-	id := event["kCBMsgId"].(int64)
-	args := event["kCBMsgArgs"].(dict) // what happens if there are no args ?
+	id := event.MustGetInt("kCBMsgId")
+	args := event.MustGetDict("kCBMsgArgs")
 
 	if ble.verbose {
 		log.Printf("event: %v %#v\n", id, args)
@@ -111,11 +111,11 @@ func (ble *BLE) HandleXpcEvent(event dict, err error) {
 
 	switch id {
 	case 6: // state change
-		state := args["kCBMsgArgState"].(int64)
+		state := args.MustGetInt("kCBMsgArgState")
 		log.Printf("event: stateChange %v\n", STATES[state])
 
 	case 16: // advertising start
-		result := args["kCBMsgArgResult"].(int64)
+		result := args.MustGetInt("kCBMsgArgResult")
 		if result != 0 {
 			log.Printf("event: error in advertisingStart %v\n", result)
 		} else {
@@ -123,7 +123,7 @@ func (ble *BLE) HandleXpcEvent(event dict, err error) {
 		}
 
 	case 17: // advertising stop
-		result := args["kCBMsgArgResult"].(int64)
+		result := args.MustGetInt("kCBMsgArgResult")
 		if result != 0 {
 			log.Printf("event: error in advertisingStop %v\n", result)
 		} else {
@@ -131,13 +131,13 @@ func (ble *BLE) HandleXpcEvent(event dict, err error) {
 		}
 
 	case 37: // discover
-		advdata := args["kCBMsgArgAdvertisementData"].(dict)
+		advdata := args.MustGetDict("kCBMsgArgAdvertisementData")
 		if len(advdata) == 0 {
 			//log.Println("event: discover with no advertisment data")
 			break
 		}
 
-		deviceUuid := args["kCBMsgArgDeviceUUID"].(UUID)
+		deviceUuid := args.MustGetUUID("kCBMsgArgDeviceUUID")
 
 		advertisement := Advertisement{
 			localName:        advdata.GetString("kCBAdvDataLocalName", args.GetString("kCBMsgArgName", "")),
@@ -177,16 +177,16 @@ func (ble *BLE) HandleXpcEvent(event dict, err error) {
 		log.Println("event: discover", deviceUuid.String(), advertisement, rssi)
 
 	case 38: // connect
-		deviceUuid := args["kCBMsgArgDeviceUUID"].(UUID)
+		deviceUuid := args.MustGetUUID("kCBMsgArgDeviceUUID")
 		log.Println("event: connect", deviceUuid.String())
 
 	case 40: // disconnect
-		deviceUuid := args["kCBMsgArgDeviceUUID"].(UUID)
+		deviceUuid := args.MustGetUUID("kCBMsgArgDeviceUUID")
 		log.Println("event: disconnect", deviceUuid.String())
 
 	case 54: // rssiUpdate
-		deviceUuid := args["kCBMsgArgDeviceUUID"].(UUID)
-		rssi := args["kCBMsgArgData"].(int64)
+		deviceUuid := args.MustGetUUID("kCBMsgArgDeviceUUID")
+		rssi := args.MustGetInt("kCBMsgArgData")
 
 		if p, ok := ble.peripherals[deviceUuid.String()]; ok {
 			p.rssi = rssi
@@ -195,7 +195,7 @@ func (ble *BLE) HandleXpcEvent(event dict, err error) {
 		log.Println("event: rssiUpdate", deviceUuid.String(), rssi)
 
 	case 55: // serviceDiscover
-		deviceUuid := args["kCBMsgArgDeviceUUID"].(UUID)
+		deviceUuid := args.MustGetUUID("kCBMsgArgDeviceUUID")
 		servicesUuids := []string{}
 		services := map[interface{}]ServiceHandle{}
 
@@ -203,9 +203,9 @@ func (ble *BLE) HandleXpcEvent(event dict, err error) {
 			for _, s := range dservices.(array) {
 				service := s.(dict)
 				serviceHandle := ServiceHandle{
-					uuid:        fmt.Sprintf("%x", service["kCBMsgArgUUID"].([]byte)),
-					startHandle: service["kCBMsgArgServiceStartHandle"].(int64),
-					endHandle:   service["kCBMsgArgServiceEndHandle"].(int64)}
+					uuid:        fmt.Sprintf("%x", service.MustGetBytes("kCBMsgArgUUID")),
+					startHandle: service.MustGetInt("kCBMsgArgServiceStartHandle"),
+					endHandle:   service.MustGetInt("kCBMsgArgServiceEndHandle")}
 
 				services[serviceHandle.uuid] = serviceHandle
 				services[serviceHandle.startHandle] = serviceHandle

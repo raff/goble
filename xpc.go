@@ -25,6 +25,22 @@ func (d dict) Contains(k string) bool {
 	return ok
 }
 
+func (d dict) MustGetDict(k string) dict {
+	return d[k].(dict)
+}
+
+func (d dict) MustGetBytes(k string) []byte {
+	return d[k].([]byte)
+}
+
+func (d dict) MustGetInt(k string) int {
+	return int(d[k].(int64))
+}
+
+func (d dict) MustGetUUID(k string) UUID {
+	return d[k].(UUID)
+}
+
 func (d dict) GetString(k, defv string) string {
 	if v := d[k]; v != nil {
 		//log.Printf("GetString %s %#v\n", k, v)
@@ -45,10 +61,10 @@ func (d dict) GetBytes(k string, defv []byte) []byte {
 	}
 }
 
-func (d dict) GetInt(k string, defv int64) int64 {
+func (d dict) GetInt(k string, defv int) int {
 	if v := d[k]; v != nil {
 		//log.Printf("GetString %s %#v\n", k, v)
-		return v.(int64)
+		return int(v.(int64))
 	} else {
 		//log.Printf("GetString %s default %#v\n", k, defv)
 		return defv
