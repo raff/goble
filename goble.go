@@ -45,11 +45,11 @@ type ServiceHandle struct {
 }
 
 type Advertisement struct {
-	localName        string
-	txPowerLevel     int
-	manufacturerData []byte
-	serviceData      []ServiceData
-	serviceUuids     []string
+	LocalName        string
+	TxPowerLevel     int
+	ManufacturerData []byte
+	ServiceData      []ServiceData
+	ServiceUuids     []string
 }
 
 type Peripheral struct {
@@ -81,6 +81,7 @@ type Service struct {
 }
 
 type BLE struct {
+	Emitter
 	conn    C.xpc_connection_t
 	verbose bool
 
@@ -112,14 +113,14 @@ func (ble *BLE) HandleXpcEvent(event dict, err error) {
 	switch id {
 	case 6: // state change
 		state := args.MustGetInt("kCBMsgArgState")
-		log.Printf("event: stateChange %v\n", STATES[state])
+		ble.Emit(Event{Name: "stateChange", State: STATES[state]})
 
 	case 16: // advertising start
 		result := args.MustGetInt("kCBMsgArgResult")
 		if result != 0 {
 			log.Printf("event: error in advertisingStart %v\n", result)
 		} else {
-			log.Println("event: advertisingStart")
+			ble.Emit(Event{Name: "advertisingStart"})
 		}
 
 	case 17: // advertising stop
@@ -127,7 +128,7 @@ func (ble *BLE) HandleXpcEvent(event dict, err error) {
 		if result != 0 {
 			log.Printf("event: error in advertisingStop %v\n", result)
 		} else {
-			log.Println("event: advertisingStop")
+			ble.Emit(Event{Name: "advertisingStop"})
 		}
 
 	case 37: // discover
@@ -140,18 +141,18 @@ func (ble *BLE) HandleXpcEvent(event dict, err error) {
 		deviceUuid := args.MustGetUUID("kCBMsgArgDeviceUUID")
 
 		advertisement := Advertisement{
-			localName:        advdata.GetString("kCBAdvDataLocalName", args.GetString("kCBMsgArgName", "")),
-			txPowerLevel:     advdata.GetInt("kCBAdvDataTxPowerLevel", 0),
-			manufacturerData: advdata.GetBytes("kCBAdvDataManufacturerData", nil),
-			serviceData:      []ServiceData{},
-			serviceUuids:     []string{},
+			LocalName:        advdata.GetString("kCBAdvDataLocalName", args.GetString("kCBMsgArgName", "")),
+			TxPowerLevel:     advdata.GetInt("kCBAdvDataTxPowerLevel", 0),
+			ManufacturerData: advdata.GetBytes("kCBAdvDataManufacturerData", nil),
+			ServiceData:      []ServiceData{},
+			ServiceUuids:     []string{},
 		}
 
 		rssi := args.GetInt("kCBMsgArgRssi", 0)
 
 		if uuids, ok := advdata["kCBAdvDataServiceUUIDs"]; ok {
 			for _, uuid := range uuids.(array) {
-				advertisement.serviceUuids = append(advertisement.serviceUuids, GetUUID(uuid).String())
+				advertisement.ServiceUuids = append(advertisement.ServiceUuids, GetUUID(uuid).String())
 			}
 		}
 
@@ -163,7 +164,7 @@ func (ble *BLE) HandleXpcEvent(event dict, err error) {
 					data: bytes[1:],
 				}
 
-				advertisement.serviceData = append(advertisement.serviceData, sd)
+				advertisement.ServiceData = append(advertisement.ServiceData, sd)
 			}
 		}
 
@@ -174,15 +175,15 @@ func (ble *BLE) HandleXpcEvent(event dict, err error) {
 			services:      map[interface{}]ServiceHandle{},
 		}
 
-		log.Println("event: discover", deviceUuid.String(), advertisement, rssi)
+		ble.Emit(Event{Name: "discover", DeviceUUID: deviceUuid, Advertisement: advertisement, Rssi: rssi})
 
 	case 38: // connect
 		deviceUuid := args.MustGetUUID("kCBMsgArgDeviceUUID")
-		log.Println("event: connect", deviceUuid.String())
+		ble.Emit(Event{Name: "connect", DeviceUUID: deviceUuid})
 
 	case 40: // disconnect
 		deviceUuid := args.MustGetUUID("kCBMsgArgDeviceUUID")
-		log.Println("event: disconnect", deviceUuid.String())
+		ble.Emit(Event{Name: "disconnect", DeviceUUID: deviceUuid})
 
 	case 54: // rssiUpdate
 		deviceUuid := args.MustGetUUID("kCBMsgArgDeviceUUID")
@@ -192,7 +193,7 @@ func (ble *BLE) HandleXpcEvent(event dict, err error) {
 			p.rssi = rssi
 		}
 
-		log.Println("event: rssiUpdate", deviceUuid.String(), rssi)
+		ble.Emit(Event{Name: "rssiUpdate", DeviceUUID: deviceUuid, Rssi: rssi})
 
 	case 55: // serviceDiscover
 		deviceUuid := args.MustGetUUID("kCBMsgArgDeviceUUID")
@@ -215,8 +216,7 @@ func (ble *BLE) HandleXpcEvent(event dict, err error) {
 		}
 
 		ble.peripherals[deviceUuid.String()].services = services
-
-		log.Println("event: serviceDiscover", deviceUuid.String(), servicesUuids, services)
+		ble.Emit(Event{Name: "servicesDiscover", DeviceUUID: deviceUuid, Services: servicesUuids})
 	}
 }
 
