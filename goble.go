@@ -53,10 +53,10 @@ type Advertisement struct {
 }
 
 type Peripheral struct {
-	uuid          UUID
-	advertisement Advertisement
-	rssi          int
-	services      map[interface{}]ServiceHandle
+	Uuid          UUID
+	Advertisement Advertisement
+	Rssi          int
+	Services      map[interface{}]ServiceHandle
 }
 
 // GATT Descriptor
@@ -88,6 +88,7 @@ type BLE struct {
 	peripherals            map[string]*Peripheral
 	attributes             array
 	lastServiceAttributeId int
+	allowDuplicates        bool
 }
 
 func New() *BLE {
@@ -168,14 +169,29 @@ func (ble *BLE) HandleXpcEvent(event dict, err error) {
 			}
 		}
 
-		ble.peripherals[deviceUuid.String()] = &Peripheral{
-			uuid:          deviceUuid,
-			advertisement: advertisement,
-			rssi:          rssi,
-			services:      map[interface{}]ServiceHandle{},
+		pid := deviceUuid.String()
+		p := ble.peripherals[pid]
+		emit := ble.allowDuplicates || p == nil
+
+		if p == nil {
+                        // add new peripheral
+			p = &Peripheral{
+				Uuid:          deviceUuid,
+				Advertisement: advertisement,
+				Rssi:          rssi,
+				Services:      map[interface{}]ServiceHandle{},
+			}
+
+			ble.peripherals[pid] = p
+		} else {
+                        // update peripheral
+			p.Advertisement = advertisement
+			p.Rssi = rssi
 		}
 
-		ble.Emit(Event{Name: "discover", DeviceUUID: deviceUuid, Advertisement: advertisement, Rssi: rssi})
+		if emit {
+			ble.Emit(Event{Name: "discover", DeviceUUID: deviceUuid, Peripheral: *p})
+		}
 
 	case 38: // connect
 		deviceUuid := args.MustGetUUID("kCBMsgArgDeviceUUID")
@@ -190,10 +206,9 @@ func (ble *BLE) HandleXpcEvent(event dict, err error) {
 		rssi := args.MustGetInt("kCBMsgArgData")
 
 		if p, ok := ble.peripherals[deviceUuid.String()]; ok {
-			p.rssi = rssi
+			p.Rssi = rssi
+			ble.Emit(Event{Name: "rssiUpdate", DeviceUUID: deviceUuid, Peripheral: *p})
 		}
-
-		ble.Emit(Event{Name: "rssiUpdate", DeviceUUID: deviceUuid, Rssi: rssi})
 
 	case 55: // serviceDiscover
 		deviceUuid := args.MustGetUUID("kCBMsgArgDeviceUUID")
@@ -215,8 +230,10 @@ func (ble *BLE) HandleXpcEvent(event dict, err error) {
 			}
 		}
 
-		ble.peripherals[deviceUuid.String()].services = services
-		ble.Emit(Event{Name: "servicesDiscover", DeviceUUID: deviceUuid, Services: servicesUuids})
+		if p, ok := ble.peripherals[deviceUuid.String()]; ok {
+			p.Services = services
+			ble.Emit(Event{Name: "servicesDiscover", DeviceUUID: deviceUuid, Peripheral: *p})
+		}
 	}
 }
 
@@ -227,7 +244,7 @@ func (ble *BLE) sendCBMsg(id int, args dict) {
 		log.Printf("sendCBMsg %#v\n", message)
 	}
 
-	C.XpcSendMessage(ble.conn, goToXpc(message), true)
+	C.XpcSendMessage(ble.conn, goToXpc(message), true, ble.verbose == true)
 }
 
 // initialize BLE
@@ -281,6 +298,7 @@ func (ble *BLE) StartScanning(serviceUuids []UUID, allowDuplicates bool) {
 		args["kCBMsgArgOptions"] = dict{}
 	}
 
+	ble.allowDuplicates = allowDuplicates
 	ble.sendCBMsg(29, args)
 }
 
@@ -294,7 +312,7 @@ func (ble *BLE) Connect(deviceUuid UUID) {
 	uuid := deviceUuid.String()
 	if p, ok := ble.peripherals[uuid]; ok {
 		ble.sendCBMsg(31, dict{"kCBMsgArgOptions": dict{"kCBConnectOptionNotifyOnDisconnection": 1},
-			"kCBMsgArgDeviceUUID": p.uuid})
+			"kCBMsgArgDeviceUUID": p.Uuid})
 	} else {
 		log.Println("no peripheral", deviceUuid)
 	}
@@ -304,7 +322,7 @@ func (ble *BLE) Connect(deviceUuid UUID) {
 func (ble *BLE) Disconnect(deviceUuid UUID) {
 	uuid := deviceUuid.String()
 	if p, ok := ble.peripherals[uuid]; ok {
-		ble.sendCBMsg(32, dict{"kCBMsgArgDeviceUUID": p.uuid})
+		ble.sendCBMsg(32, dict{"kCBMsgArgDeviceUUID": p.Uuid})
 	} else {
 		log.Println("no peripheral", deviceUuid)
 	}
@@ -314,7 +332,7 @@ func (ble *BLE) Disconnect(deviceUuid UUID) {
 func (ble *BLE) UpdateRssi(deviceUuid UUID) {
 	uuid := deviceUuid.String()
 	if p, ok := ble.peripherals[uuid]; ok {
-		ble.sendCBMsg(43, dict{"kCBMsgArgDeviceUUID": p.uuid})
+		ble.sendCBMsg(43, dict{"kCBMsgArgDeviceUUID": p.Uuid})
 	} else {
 		log.Println("no peripheral", deviceUuid)
 	}
@@ -328,7 +346,7 @@ func (ble *BLE) DiscoverServices(deviceUuid UUID, uuids []UUID) {
 		for i, uuid := range uuids {
 			sUuids[i] = uuid.String()
 		}
-		ble.sendCBMsg(44, dict{"kCBMsgArgDeviceUUID": p.uuid, "kCBMsgArgUUIDs": sUuids})
+		ble.sendCBMsg(44, dict{"kCBMsgArgDeviceUUID": p.Uuid, "kCBMsgArgUUIDs": sUuids})
 	} else {
 		log.Println("no peripheral", deviceUuid)
 	}

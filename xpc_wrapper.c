@@ -47,12 +47,14 @@ xpc_connection_t XpcConnect(char *service, void *ctx) {
     return conn;
 }
 
-void XpcSendMessage(xpc_connection_t conn, xpc_object_t message, bool release) {
+void XpcSendMessage(xpc_connection_t conn, xpc_object_t message, bool release, bool reportDelivery) {
     xpc_connection_send_message(conn,  message);
     xpc_connection_send_barrier(conn, ^{
         // Block is invoked on connection's target queue
         // when 'message' has been sent.
-        puts("message delivered");
+        if (reportDelivery) { // maybe this could be a callback
+            puts("message delivered");
+        }
     });
     if (release) {
         xpc_release(message);

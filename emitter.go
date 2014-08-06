@@ -4,13 +4,15 @@ import (
 	"log"
 )
 
+const (
+	ALL = "__allEvents__"
+)
+
 type Event struct {
-	Name          string
-	State         string
-	DeviceUUID    UUID
-	Advertisement Advertisement
-	Rssi          int
-	Services      []string
+	Name       string
+	State      string
+	DeviceUUID UUID
+	Peripheral Peripheral
 }
 
 type EventHandlerFunc func(Event)
@@ -25,6 +27,8 @@ func (e *Emitter) Emit(ev Event) {
 	}
 
 	if fn, ok := e.handlers[ev.Name]; ok {
+		fn(ev)
+	} else if fn, ok := e.handlers[ALL]; ok {
 		fn(ev)
 	} else {
 		log.Println("unhandled emit", ev)
