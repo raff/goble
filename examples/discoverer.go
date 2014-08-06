@@ -37,16 +37,17 @@ func main() {
 		fmt.Println("\t\t", ev.Peripheral.Advertisement.LocalName)
 		fmt.Println("\tcan I interest you in any of the following advertised services:")
 		fmt.Println("\t\t", ev.Peripheral.Services)
+
+                serviceData := ev.Peripheral.Advertisement.ServiceData
+                if len(serviceData) > 0 {
+                    fmt.Println("\there is my service data:")
+                    for _, d := range serviceData {
+	                fmt.Println("\t\t", d.Uuid, ":", d.Data)
+	            }
+	        }
 	})
 
 	/*
-	   var serviceData = peripheral.advertisement.serviceData;
-	   if (serviceData && serviceData.length) {
-	     console.log('\there is my service data:');
-	     for (var i in serviceData) {
-	       console.log('\t\t' + JSON.stringify(serviceData[i].uuid) + ': ' + JSON.stringify(serviceData[i].data.toString('hex')));
-	     }
-	   }
 	   if (peripheral.advertisement.manufacturerData) {
 	     console.log('\there is my manufacturer data:');
 	     console.log('\t\t' + JSON.stringify(peripheral.advertisement.manufacturerData.toString('hex')));
