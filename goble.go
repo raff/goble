@@ -34,8 +34,8 @@ const (
 )
 
 type ServiceData struct {
-	uuid string
-	data []byte
+	Uuid string
+	Data []byte
 }
 
 type ServiceHandle struct {
@@ -92,7 +92,8 @@ type BLE struct {
 }
 
 func New() *BLE {
-	ble := &BLE{peripherals: map[string]*Peripheral{}}
+	ble := &BLE{peripherals: map[string]*Peripheral{}, Emitter: Emitter{}}
+	ble.Emitter.Init()
 	ble.conn = XpcConnect("com.apple.blued", ble)
 	return ble
 }
@@ -157,12 +158,13 @@ func (ble *BLE) HandleXpcEvent(event dict, err error) {
 			}
 		}
 
-		if sdata, ok := advdata["kCBAdvDataServiceData"]; ok {
-			for _, data := range sdata.(array) {
-				bytes := data.([]byte)
+		if data, ok := advdata["kCBAdvDataServiceData"]; ok {
+			sdata := data.(array)
+
+			for i := 0; i < len(sdata); i += 2 {
 				sd := ServiceData{
-					uuid: fmt.Sprintf("%x", bytes[0]),
-					data: bytes[1:],
+					Uuid: fmt.Sprintf("%x", sdata[i+0].([]byte)),
+					Data: sdata[i+1].([]byte),
 				}
 
 				advertisement.ServiceData = append(advertisement.ServiceData, sd)
@@ -174,7 +176,7 @@ func (ble *BLE) HandleXpcEvent(event dict, err error) {
 		emit := ble.allowDuplicates || p == nil
 
 		if p == nil {
-                        // add new peripheral
+			// add new peripheral
 			p = &Peripheral{
 				Uuid:          deviceUuid,
 				Advertisement: advertisement,
@@ -184,7 +186,7 @@ func (ble *BLE) HandleXpcEvent(event dict, err error) {
 
 			ble.peripherals[pid] = p
 		} else {
-                        // update peripheral
+			// update peripheral
 			p.Advertisement = advertisement
 			p.Rssi = rssi
 		}
@@ -249,7 +251,7 @@ func (ble *BLE) sendCBMsg(id int, args dict) {
 
 // initialize BLE
 func (ble *BLE) Init() {
-	ble.sendCBMsg(1, dict{"kCBMsgArgName": fmt.Sprintf("node-%v", time.Now().Unix()),
+	ble.sendCBMsg(1, dict{"kCBMsgArgName": fmt.Sprintf("goble-%v", time.Now().Unix()),
 		"kCBMsgArgOptions": dict{"kCBInitOptionShowPowerAlert": 0}, "kCBMsgArgType": 0})
 }
 
