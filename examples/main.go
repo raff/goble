@@ -13,6 +13,7 @@ import (
 func main() {
 	verbose := flag.Bool("verbose", false, "dump all events")
 	advertise := flag.Int("advertise", 0, "Duration of advertising - 0: does not advertise")
+	dups := flag.Bool("allow-duplicates", false, "allow duplicates when scanning")
 	ibeacon := flag.Int("ibeacon", 0, "Duration of IBeacon advertising - 0: does not advertise")
 	scan := flag.Int("scan", 10, "Duration of scanning - 0: does not scan")
 	uuid := flag.String("uuid", "", "device uuid (for ibeacon uuid,major,minor,power)")
@@ -76,7 +77,7 @@ func main() {
 	if *scan > 0 {
 		time.Sleep(1 * time.Second)
 		log.Println("Start Scanning...")
-		ble.StartScanning(nil, true)
+		ble.StartScanning(nil, *dups)
 
 		time.Sleep(time.Duration(*scan) * time.Second)
 		log.Println("Stop Scanning...")
