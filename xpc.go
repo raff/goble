@@ -29,6 +29,10 @@ func (d dict) MustGetDict(k string) dict {
 	return d[k].(dict)
 }
 
+func (d dict) MustGetArray(k string) array {
+	return d[k].(array)
+}
+
 func (d dict) MustGetBytes(k string) []byte {
 	return d[k].([]byte)
 }

@@ -11,122 +11,134 @@ import (
 
 func explore(ble *goble.BLE, peripheral *goble.Peripheral) {
 
+	// connect
 	ble.On("connect", func(ev goble.Event) (done bool) {
 		log.Println("connected", ev)
 		ble.DiscoverServices(ev.DeviceUUID, nil)
 		return
 	})
 
+	// discover services
+	ble.On("servicesDiscover", func(ev goble.Event) (done bool) {
+		for sid, service := range ev.Peripheral.Services {
+			// this is a map that contains services UUIDs (string) and service startHandle (int)
+			// for now we only process the "strings"
+			if _, ok := sid.(string); ok {
+				serviceInfo := service.Uuid
+
+				if len(service.Name) > 0 {
+					serviceInfo += " (" + service.Name + ")"
+				}
+
+				fmt.Println(serviceInfo)
+
+				ble.DiscoverCharacterstics(ev.DeviceUUID, service.Uuid, nil)
+			}
+		}
+
+		return
+	})
+
+	// discover characteristics
+	ble.On("characteristicsDiscover", func(ev goble.Event) (done bool) {
+		serviceUuid := ev.ServiceUuid
+
+		for cid, characteristic := range  ev.Peripheral.Services[serviceUuid].Characteristics {
+			// this is a map that contains services UUIDs (string) and service startHandle (int)
+			// for now we only process the "strings"
+			if _, ok := cid.(string); ok {
+	                    characteristicInfo := "  " + characteristic.Uuid
+
+	                    if len(characteristic.Name) > 0 {
+	                        characteristicInfo += " (" + characteristic.Name + ")"
+	                    }
+
+                            fmt.Println(characteristicInfo)
+                        }
+                }
+
+		ble.Disconnect(peripheral.Uuid)
+		return
+	})
+
+	// disconnect
 	ble.On("disconnect", func(ev goble.Event) (done bool) {
 		log.Println("disconnected", ev)
 		os.Exit(0)
 		return true
 	})
 
-	ble.On("servicesDiscover", func(ev goble.Event) (done bool) {
-		log.Println("services", ev)
-		return
-	})
-
 	fmt.Println("services and characteristics:")
 	ble.Connect(peripheral.Uuid)
 
 	/*
+	   peripheral.discoverServices([], function(error, services) {
+	         service.discoverCharacteristics([], function(error, characteristics) {
+	           var characteristicIndex = 0;
 
-	     peripheral.on('disconnect', function() {
-	       process.exit(0);
-	     });
+	           async.whilst(
+	             function () {
+	               return (characteristicIndex < characteristics.length);
+	             },
+	             function(callback) {
+	               var characteristic = characteristics[characteristicIndex];
+	               var characteristicInfo = '  ' + characteristic.uuid;
 
-	     peripheral.connect(function(error) {
-	       peripheral.discoverServices([], function(error, services) {
-	         var serviceIndex = 0;
+	               if (characteristic.name) {
+	                 characteristicInfo += ' (' + characteristic.name + ')';
+	               }
 
-	         async.whilst(
-	           function () {
-	             return (serviceIndex < services.length);
-	           },
-	           function(callback) {
-	             var service = services[serviceIndex];
-	             var serviceInfo = service.uuid;
-
-	             if (service.name) {
-	               serviceInfo += ' (' + service.name + ')';
-	             }
-	             console.log(serviceInfo);
-
-	             service.discoverCharacteristics([], function(error, characteristics) {
-	               var characteristicIndex = 0;
-
-	               async.whilst(
-	                 function () {
-	                   return (characteristicIndex < characteristics.length);
+	               async.series([
+	                 function(callback) {
+	                   characteristic.discoverDescriptors(function(error, descriptors) {
+	                     async.detect(
+	                       descriptors,
+	                       function(descriptor, callback) {
+	                         return callback(descriptor.uuid === '2901")
+	                       },
+	                       function(userDescriptionDescriptor){
+	                         if (userDescriptionDescriptor) {
+	                           userDescriptionDescriptor.readValue(function(error, data) {
+	                             characteristicInfo += ' (' + data.toString() + ')';
+	                             callback();
+	                           });
+	                         } else {
+	                           callback();
+	                         }
+	                       }
+	                     );
+	                   });
 	                 },
 	                 function(callback) {
-	                   var characteristic = characteristics[characteristicIndex];
-	                   var characteristicInfo = '  ' + characteristic.uuid;
+	                       characteristicInfo += '\n    properties  ' + characteristic.properties.join(', ")
 
-	                   if (characteristic.name) {
-	                     characteristicInfo += ' (' + characteristic.name + ')';
-	                   }
+	                   if (characteristic.properties.indexOf('read') !== -1) {
+	                     characteristic.read(function(error, data) {
+	                       if (data) {
+	                         var string = data.toString('ascii")
 
-	                   async.series([
-	                     function(callback) {
-	                       characteristic.discoverDescriptors(function(error, descriptors) {
-	                         async.detect(
-	                           descriptors,
-	                           function(descriptor, callback) {
-	                             return callback(descriptor.uuid === '2901")
-	                           },
-	                           function(userDescriptionDescriptor){
-	                             if (userDescriptionDescriptor) {
-	                               userDescriptionDescriptor.readValue(function(error, data) {
-	                                 characteristicInfo += ' (' + data.toString() + ')';
-	                                 callback();
-	                               });
-	                             } else {
-	                               callback();
-	                             }
-	                           }
-	                         );
-	                       });
-	                     },
-	                     function(callback) {
-	                           characteristicInfo += '\n    properties  ' + characteristic.properties.join(', ")
-
-	                       if (characteristic.properties.indexOf('read') !== -1) {
-	                         characteristic.read(function(error, data) {
-	                           if (data) {
-	                             var string = data.toString('ascii")
-
-	                             characteristicInfo += '\n    value       ' + data.toString('hex') + ' | \'' + string + '\'';
-	                           }
-	                           callback();
-	                         });
-	                       } else {
-	                         callback();
+	                         characteristicInfo += '\n    value       ' + data.toString('hex') + ' | \'' + string + '\'';
 	                       }
-	                     },
-	                     function() {
-	                       console.log(characteristicInfo);
-	                       characteristicIndex++;
 	                       callback();
-	                     }
-	                   ]);
+	                     });
+	                   } else {
+	                     callback();
+	                   }
 	                 },
-	                 function(error) {
-	                   serviceIndex++;
+	                 function() {
+	                   console.log(characteristicInfo);
+	                   characteristicIndex++;
 	                   callback();
 	                 }
-	               );
-	             });
-	           },
-	           function (err) {
-	             peripheral.disconnect();
-	           }
-	         );
-	       });
-	     });
-	   }
+	               ]);
+	             },
+	             function(error) {
+	               serviceIndex++;
+	               callback();
+	             }
+	           );
+	         });
+	       },
 	*/
 }
 

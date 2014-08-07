@@ -33,15 +33,56 @@ const (
 	ExtendedProperties                 = 1 << iota
 )
 
+func (p Property) String() (result string) {
+	if (p & Broadcast) != 0 {
+		result += "broadcast "
+	}
+	if (p & Read) != 0 {
+		result += "read "
+	}
+	if (p & WriteWithoutResponse) != 0 {
+		result += "writeWithoutResponse "
+	}
+	if (p & Write) != 0 {
+		result += "write "
+	}
+	if (p & Notify) != 0 {
+		result += "notify "
+	}
+	if (p & Indicate) != 0 {
+		result += "indicate "
+	}
+	if (p & AuthenticatedSignedWrites) != 0 {
+		result += "authenticateSignedWrites "
+	}
+	if (p & ExtendedProperties) != 0 {
+		result += "extendedProperties "
+	}
+
+	return
+}
+
 type ServiceData struct {
 	Uuid string
 	Data []byte
 }
 
+type ServiceCharacteristic struct {
+	Uuid        string
+        Name        string
+        Type        string
+	Properties  Property
+	Handle      int
+	ValueHandle int
+}
+
 type ServiceHandle struct {
-	uuid        string
-	startHandle int
-	endHandle   int
+	Uuid            string
+	Name            string
+	Type            string
+	Characteristics map[interface{}]*ServiceCharacteristic
+	startHandle     int
+	endHandle       int
 }
 
 type Advertisement struct {
@@ -56,7 +97,7 @@ type Peripheral struct {
 	Uuid          UUID
 	Advertisement Advertisement
 	Rssi          int
-	Services      map[interface{}]ServiceHandle
+	Services      map[interface{}]*ServiceHandle
 }
 
 // GATT Descriptor
@@ -105,9 +146,9 @@ func (ble *BLE) SetVerbose(v bool) {
 // process BLE events and asynchronous errors
 // (implements XpcEventHandler)
 func (ble *BLE) HandleXpcEvent(event dict, err error) {
-        if err != nil {
-                log.Println("error:", err)
-        }
+	if err != nil {
+		log.Println("error:", err)
+	}
 
 	id := event.MustGetInt("kCBMsgId")
 	args := event.MustGetDict("kCBMsgArgs")
@@ -185,7 +226,7 @@ func (ble *BLE) HandleXpcEvent(event dict, err error) {
 				Uuid:          deviceUuid,
 				Advertisement: advertisement,
 				Rssi:          rssi,
-				Services:      map[interface{}]ServiceHandle{},
+				Services:      map[interface{}]*ServiceHandle{},
 			}
 
 			ble.peripherals[pid] = p
@@ -219,26 +260,105 @@ func (ble *BLE) HandleXpcEvent(event dict, err error) {
 	case 55: // serviceDiscover
 		deviceUuid := args.MustGetUUID("kCBMsgArgDeviceUUID")
 		servicesUuids := []string{}
-		services := map[interface{}]ServiceHandle{}
+		servicesHandles := map[interface{}]*ServiceHandle{}
 
 		if dservices, ok := args["kCBMsgArgServices"]; ok {
 			for _, s := range dservices.(array) {
 				service := s.(dict)
 				serviceHandle := ServiceHandle{
-					uuid:        fmt.Sprintf("%x", service.MustGetBytes("kCBMsgArgUUID")),
-					startHandle: service.MustGetInt("kCBMsgArgServiceStartHandle"),
-					endHandle:   service.MustGetInt("kCBMsgArgServiceEndHandle")}
+					Uuid:            fmt.Sprintf("%x", service.MustGetBytes("kCBMsgArgUUID")),
+					startHandle:     service.MustGetInt("kCBMsgArgServiceStartHandle"),
+					endHandle:       service.MustGetInt("kCBMsgArgServiceEndHandle"),
+					Characteristics: map[interface{}]*ServiceCharacteristic{}}
 
-				services[serviceHandle.uuid] = serviceHandle
-				services[serviceHandle.startHandle] = serviceHandle
+				if nameType, ok := knownServices[serviceHandle.Uuid]; ok {
+					serviceHandle.Name = nameType.Name
+					serviceHandle.Type = nameType.Type
+				}
 
-				servicesUuids = append(servicesUuids, serviceHandle.uuid)
+				servicesHandles[serviceHandle.Uuid] = &serviceHandle
+				servicesHandles[serviceHandle.startHandle] = &serviceHandle
+
+				servicesUuids = append(servicesUuids, serviceHandle.Uuid)
 			}
 		}
 
 		if p, ok := ble.peripherals[deviceUuid.String()]; ok {
-			p.Services = services
+			p.Services = servicesHandles
 			ble.Emit(Event{Name: "servicesDiscover", DeviceUUID: deviceUuid, Peripheral: *p})
+		}
+
+	case 63: // characteristicsDiscover
+		deviceUuid := args.MustGetUUID("kCBMsgArgDeviceUUID")
+		serviceStartHandle := args.MustGetInt("kCBMsgArgServiceStartHandle")
+
+		if p, ok := ble.peripherals[deviceUuid.String()]; ok {
+			service := p.Services[serviceStartHandle]
+
+			//result := args.MustGetInt("kCBMsgArgResult")
+
+			for _, c := range args.MustGetArray("kCBMsgArgCharacteristics") {
+				cDict := c.(dict)
+
+				characteristic := ServiceCharacteristic{
+					Uuid:        fmt.Sprintf("%x", cDict.MustGetBytes("kCBMsgArgUUID")),
+					Handle:      cDict.MustGetInt("kCBMsgArgCharacteristicHandle"),
+					ValueHandle: cDict.MustGetInt("kCBMsgArgCharacteristicValueHandle"),
+				}
+
+				if nameType, ok := knownCharacteristics[characteristic.Uuid]; ok {
+					characteristic.Name = nameType.Name
+					characteristic.Type = nameType.Type
+				}
+
+				properties := cDict.MustGetInt("kCBMsgArgCharacteristicProperties")
+
+				if (properties & 0x01) != 0 {
+					characteristic.Properties |= Broadcast
+				}
+
+				if (properties & 0x02) != 0 {
+					characteristic.Properties |= Read
+				}
+
+				if (properties & 0x04) != 0 {
+					characteristic.Properties |= WriteWithoutResponse
+				}
+
+				if (properties & 0x08) != 0 {
+					characteristic.Properties |= Write
+				}
+
+				if (properties & 0x10) != 0 {
+					characteristic.Properties |= Notify
+				}
+
+				if (properties & 0x20) != 0 {
+					characteristic.Properties |= Indicate
+				}
+
+				if (properties & 0x40) != 0 {
+					characteristic.Properties |= AuthenticatedSignedWrites
+				}
+
+				if (properties & 0x80) != 0 {
+					characteristic.Properties |= ExtendedProperties
+				}
+
+				if service != nil {
+					service.Characteristics[characteristic.Uuid] = &characteristic
+					service.Characteristics[characteristic.Handle] = &characteristic
+					service.Characteristics[characteristic.ValueHandle] = &characteristic
+				}
+			}
+
+			if service != nil {
+				ble.Emit(Event{Name: "characteristicsDiscover", DeviceUUID: deviceUuid, ServiceUuid: service.Uuid, Peripheral: *p})
+			} else {
+				log.Println("no service", serviceStartHandle)
+			}
+		} else {
+			log.Println("no peripheral", deviceUuid)
 		}
 	}
 }
@@ -350,9 +470,30 @@ func (ble *BLE) DiscoverServices(deviceUuid UUID, uuids []UUID) {
 	if p, ok := ble.peripherals[sUuid]; ok {
 		sUuids := make([]string, len(uuids))
 		for i, uuid := range uuids {
-			sUuids[i] = uuid.String()
+			sUuids[i] = uuid.String() // uuids may be a list of []byte (2 bytes)
 		}
 		ble.sendCBMsg(44, dict{"kCBMsgArgDeviceUUID": p.Uuid, "kCBMsgArgUUIDs": sUuids})
+	} else {
+		log.Println("no peripheral", deviceUuid)
+	}
+}
+
+// discover characteristics
+func (ble *BLE) DiscoverCharacterstics(deviceUuid UUID, serviceUuid string, characteristicUuids []string) {
+	sUuid := deviceUuid.String()
+	if p, ok := ble.peripherals[sUuid]; ok {
+		cUuids := make([]string, len(characteristicUuids))
+		for i, cuuid := range characteristicUuids {
+			cUuids[i] = cuuid // characteristicUuids may be a list of []byte (2 bytes)
+		}
+		args := dict{
+			"kCBMsgArgDeviceUUID":         p.Uuid,
+			"kCBMsgArgServiceStartHandle": p.Services[serviceUuid].startHandle,
+			"kCBMsgArgServiceEndHandle":   p.Services[serviceUuid].endHandle,
+			"kCBMsgArgUUIDs":              cUuids,
+		}
+
+		ble.sendCBMsg(61, args)
 	} else {
 		log.Println("no peripheral", deviceUuid)
 	}
