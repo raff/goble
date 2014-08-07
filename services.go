@@ -1,5 +1,6 @@
 package goble
 
+// A dictionary of known service names and type (keyed by service uuid)
 var knownServices = map[string]struct{ Name, Type string }{
 	"1800": {Name: "Generic Access", Type: "org.bluetooth.service.generic_access"},
 	"1801": {Name: "Generic Attribute", Type: "org.bluetooth.service.generic_attribute"},

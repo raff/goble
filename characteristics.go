@@ -1,5 +1,6 @@
 package goble
 
+// A dictionary of known characteristic names and type (keyed by characteristic uuid)
 var knownCharacteristics = map[string]struct{ Name, Type string }{
 	"2a00": {Name: "Device Name", Type: "org.bluetooth.characteristic.gap.device_name"},
 	"2a01": {Name: "Appearance", Type: "org.bluetooth.characteristic.gap.appearance"},
