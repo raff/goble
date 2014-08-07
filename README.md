@@ -13,3 +13,8 @@ Once I have something working it can maybe integrated with [github.com/paypal/ga
     
 ## Documentation
 http://godoc.org/github.com/raff/goble
+
+## Examples
+* examples/main.go : an example of how to use most of the APIs
+* examples/discoverer.go : a port of nodejs noble "advertisement-discovery.js" example
+* examples/explorer.go : a port of nodejs noble "peripheral-explorer.js" example
