@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"time"
 
 	"../../goble"
 )
@@ -15,6 +16,12 @@ func explore(ble *goble.BLE, peripheral *goble.Peripheral) {
 	ble.On("connect", func(ev goble.Event) (done bool) {
 		log.Println("connected", ev)
 		ble.DiscoverServices(ev.DeviceUUID, nil)
+
+		go func() {
+			time.Sleep(2 * time.Minute)
+			ble.Disconnect(ev.DeviceUUID)
+		}()
+
 		return
 	})
 
@@ -43,21 +50,29 @@ func explore(ble *goble.BLE, peripheral *goble.Peripheral) {
 	ble.On("characteristicsDiscover", func(ev goble.Event) (done bool) {
 		serviceUuid := ev.ServiceUuid
 
-		for cid, characteristic := range  ev.Peripheral.Services[serviceUuid].Characteristics {
+		for cid, characteristic := range ev.Peripheral.Services[serviceUuid].Characteristics {
 			// this is a map that contains services UUIDs (string) and service startHandle (int)
 			// for now we only process the "strings"
 			if _, ok := cid.(string); ok {
-	                    characteristicInfo := "  " + characteristic.Uuid
+				characteristicInfo := "  " + characteristic.Uuid
 
-	                    if len(characteristic.Name) > 0 {
-	                        characteristicInfo += " (" + characteristic.Name + ")"
-	                    }
+				if len(characteristic.Name) > 0 {
+					characteristicInfo += " (" + characteristic.Name + ")"
+				}
 
-                            fmt.Println(characteristicInfo)
-                        }
-                }
+				characteristicInfo += "\n    properties  " + characteristic.Properties.String()
+				fmt.Println(characteristicInfo)
 
-		ble.Disconnect(peripheral.Uuid)
+				ble.DiscoverDescriptors(ev.DeviceUUID, serviceUuid, characteristic.Uuid)
+			}
+		}
+
+		return
+	})
+
+	// discover descriptors
+	ble.On("descriptorsDiscover", func(ev goble.Event) (done bool) {
+		fmt.Println("    descriptors  ", ev.Peripheral.Services[ev.ServiceUuid].Characteristics[ev.CharacteristicUuid].Descriptors)
 		return
 	})
 
@@ -72,73 +87,57 @@ func explore(ble *goble.BLE, peripheral *goble.Peripheral) {
 	ble.Connect(peripheral.Uuid)
 
 	/*
-	   peripheral.discoverServices([], function(error, services) {
-	         service.discoverCharacteristics([], function(error, characteristics) {
-	           var characteristicIndex = 0;
-
-	           async.whilst(
-	             function () {
-	               return (characteristicIndex < characteristics.length);
+	           async.series([
+	             function(callback) {
+	               characteristic.discoverDescriptors(function(error, descriptors) {
+	                 async.detect(
+	                   descriptors,
+	                   function(descriptor, callback) {
+	                     return callback(descriptor.uuid === '2901")
+	                   },
+	                   function(userDescriptionDescriptor){
+	                     if (userDescriptionDescriptor) {
+	                       userDescriptionDescriptor.readValue(function(error, data) {
+	                         characteristicInfo += ' (' + data.toString() + ')';
+	                         callback();
+	                       });
+	                     } else {
+	                       callback();
+	                     }
+	                   }
+	                 );
+	               });
 	             },
 	             function(callback) {
-	               var characteristic = characteristics[characteristicIndex];
-	               var characteristicInfo = '  ' + characteristic.uuid;
+	                   characteristicInfo += '\n    properties  ' + characteristic.properties.join(', ")
 
-	               if (characteristic.name) {
-	                 characteristicInfo += ' (' + characteristic.name + ')';
-	               }
+	               if (characteristic.properties.indexOf('read') !== -1) {
+	                 characteristic.read(function(error, data) {
+	                   if (data) {
+	                     var string = data.toString('ascii")
 
-	               async.series([
-	                 function(callback) {
-	                   characteristic.discoverDescriptors(function(error, descriptors) {
-	                     async.detect(
-	                       descriptors,
-	                       function(descriptor, callback) {
-	                         return callback(descriptor.uuid === '2901")
-	                       },
-	                       function(userDescriptionDescriptor){
-	                         if (userDescriptionDescriptor) {
-	                           userDescriptionDescriptor.readValue(function(error, data) {
-	                             characteristicInfo += ' (' + data.toString() + ')';
-	                             callback();
-	                           });
-	                         } else {
-	                           callback();
-	                         }
-	                       }
-	                     );
-	                   });
-	                 },
-	                 function(callback) {
-	                       characteristicInfo += '\n    properties  ' + characteristic.properties.join(', ")
-
-	                   if (characteristic.properties.indexOf('read') !== -1) {
-	                     characteristic.read(function(error, data) {
-	                       if (data) {
-	                         var string = data.toString('ascii")
-
-	                         characteristicInfo += '\n    value       ' + data.toString('hex') + ' | \'' + string + '\'';
-	                       }
-	                       callback();
-	                     });
-	                   } else {
-	                     callback();
+	                     characteristicInfo += '\n    value       ' + data.toString('hex') + ' | \'' + string + '\'';
 	                   }
-	                 },
-	                 function() {
-	                   console.log(characteristicInfo);
-	                   characteristicIndex++;
 	                   callback();
-	                 }
-	               ]);
+	                 });
+	               } else {
+	                 callback();
+	               }
 	             },
-	             function(error) {
-	               serviceIndex++;
+	             function() {
+	               console.log(characteristicInfo);
+	               characteristicIndex++;
 	               callback();
 	             }
-	           );
-	         });
-	       },
+	           ]);
+	         },
+	         function(error) {
+	           serviceIndex++;
+	           callback();
+	         }
+	       );
+	     });
+	   },
 	*/
 }
 

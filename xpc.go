@@ -37,6 +37,10 @@ func (d dict) MustGetBytes(k string) []byte {
 	return d[k].([]byte)
 }
 
+func (d dict) MustGetHexBytes(k string) string {
+	return fmt.Sprintf("%x", d[k].([]byte))
+}
+
 func (d dict) MustGetInt(k string) int {
 	return int(d[k].(int64))
 }
