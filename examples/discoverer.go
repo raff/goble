@@ -17,20 +17,24 @@ func main() {
 	ble.SetVerbose(*verbose)
 
 	if *verbose {
-		ble.On(goble.ALL, func(ev goble.Event) {
+		ble.On(goble.ALL, func(ev goble.Event) (done bool) {
 			log.Println("Event", ev)
+			return
 		})
 	}
 
-	ble.On("stateChange", func(ev goble.Event) {
+	ble.On("stateChange", func(ev goble.Event) (done bool) {
 		if ev.State == "poweredOn" {
 			ble.StartScanning(nil, *dups)
 		} else {
 			ble.StopScanning()
+			done = true
 		}
+
+		return
 	})
 
-	ble.On("discover", func(ev goble.Event) {
+	ble.On("discover", func(ev goble.Event) (done bool) {
 		fmt.Println()
 		fmt.Println("peripheral discovered (", ev.DeviceUUID, "):")
 		fmt.Println("\thello my local name is:")
@@ -55,6 +59,8 @@ func main() {
 			fmt.Println("\tmy TX power level is:")
 			fmt.Println("\t\t", ev.Peripheral.Advertisement.TxPowerLevel)
 		}
+
+		return
 	})
 
 	if *verbose {
