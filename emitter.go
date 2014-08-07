@@ -16,7 +16,9 @@ type Event struct {
 	Peripheral Peripheral
 }
 
-type EventHandlerFunc func(Event)
+// The event handler function.
+// Return true to terminate
+type EventHandlerFunc func(Event) bool
 
 // Emitter is an object to emit and handle Event(s)
 type Emitter struct {
@@ -35,13 +37,19 @@ func (e *Emitter) Init() {
 			ev := <-e.event
 
 			if fn, ok := e.handlers[ev.Name]; ok {
-				fn(ev)
+				if fn(ev) {
+					break
+				}
 			} else if fn, ok := e.handlers[ALL]; ok {
-				fn(ev)
+				if fn(ev) {
+					break
+				}
 			} else {
 				log.Println("unhandled Emit", ev)
 			}
 		}
+
+		close(e.event)
 	}()
 }
 
