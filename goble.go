@@ -105,6 +105,10 @@ func (ble *BLE) SetVerbose(v bool) {
 // process BLE events and asynchronous errors
 // (implements XpcEventHandler)
 func (ble *BLE) HandleXpcEvent(event dict, err error) {
+        if err != nil {
+                log.Println("error:", err)
+        }
+
 	id := event.MustGetInt("kCBMsgId")
 	args := event.MustGetDict("kCBMsgArgs")
 
