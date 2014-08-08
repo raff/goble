@@ -14,7 +14,7 @@ func explore(ble *goble.BLE, peripheral *goble.Peripheral) {
 
 	// connect
 	ble.On("connect", func(ev goble.Event) (done bool) {
-		log.Println("connected", ev)
+		//log.Println("connected", ev)
 		ble.DiscoverServices(ev.DeviceUUID, nil)
 
 		go func() {
@@ -64,6 +64,10 @@ func explore(ble *goble.BLE, peripheral *goble.Peripheral) {
 				fmt.Println(characteristicInfo)
 
 				ble.DiscoverDescriptors(ev.DeviceUUID, serviceUuid, characteristic.Uuid)
+
+				if characteristic.Properties.Readable() {
+					ble.Read(ev.DeviceUUID, serviceUuid, characteristic.Uuid)
+				}
 			}
 		}
 
@@ -77,8 +81,14 @@ func explore(ble *goble.BLE, peripheral *goble.Peripheral) {
 	})
 
 	// disconnect
+	ble.On("read", func(ev goble.Event) (done bool) {
+		fmt.Printf("    value        %x | %q", ev.Data, ev.Data)
+		return
+	})
+
+	// disconnect
 	ble.On("disconnect", func(ev goble.Event) (done bool) {
-		log.Println("disconnected", ev)
+		//log.Println("disconnected", ev)
 		os.Exit(0)
 		return true
 	})

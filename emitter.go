@@ -16,6 +16,8 @@ type Event struct {
 	ServiceUuid        string
 	CharacteristicUuid string
 	Peripheral         Peripheral
+	Data               []byte
+	IsNotification     bool
 }
 
 // The event handler function.

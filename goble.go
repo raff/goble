@@ -33,6 +33,10 @@ const (
 	ExtendedProperties                 = 1 << iota
 )
 
+func (p Property) Readable() bool {
+	return (p & Read) != 0
+}
+
 func (p Property) String() (result string) {
 	if (p & Broadcast) != 0 {
 		result += "broadcast "
@@ -388,10 +392,26 @@ func (ble *BLE) HandleXpcEvent(event dict, err error) {
 					}
 
 					ble.Emit(Event{Name: "descriptorsDiscover", DeviceUUID: deviceUuid, ServiceUuid: s.Uuid, CharacteristicUuid: c.Uuid, Peripheral: *p})
+					break
 				}
 			}
 		} else {
 			log.Println("no peripheral", deviceUuid)
+		}
+
+	case 70:
+		deviceUuid := args.MustGetUUID("kCBMsgArgDeviceUUID")
+		characteristicsHandle := args.MustGetInt("kCBMsgArgCharacteristicHandle")
+		isNotification := args.MustGetInt("kCBMsgArgIsNotification") != 0
+		data := args.MustGetBytes("kCBMsgArgData")
+
+		if p, ok := ble.peripherals[deviceUuid.String()]; ok {
+			for _, s := range p.Services {
+				if c, ok := s.Characteristics[characteristicsHandle]; ok {
+					ble.Emit(Event{Name: "read", DeviceUUID: deviceUuid, ServiceUuid: s.Uuid, CharacteristicUuid: c.Uuid, Peripheral: *p, Data: data, IsNotification: isNotification})
+					break
+				}
+			}
 		}
 	}
 }
@@ -539,6 +559,23 @@ func (ble *BLE) DiscoverDescriptors(deviceUuid UUID, serviceUuid, characteristic
 		c := s.Characteristics[characteristicUuid]
 
 		ble.sendCBMsg(69, dict{
+			"kCBMsgArgDeviceUUID":                p.Uuid,
+			"kCBMsgArgCharacteristicHandle":      c.Handle,
+			"kCBMsgArgCharacteristicValueHandle": c.ValueHandle,
+		})
+	} else {
+		log.Println("no peripheral", deviceUuid)
+	}
+}
+
+// read
+func (ble *BLE) Read(deviceUuid UUID, serviceUuid, characteristicUuid string) {
+	sUuid := deviceUuid.String()
+	if p, ok := ble.peripherals[sUuid]; ok {
+		s := p.Services[serviceUuid]
+		c := s.Characteristics[characteristicUuid]
+
+		ble.sendCBMsg(64, dict{
 			"kCBMsgArgDeviceUUID":                p.Uuid,
 			"kCBMsgArgCharacteristicHandle":      c.Handle,
 			"kCBMsgArgCharacteristicValueHandle": c.ValueHandle,
