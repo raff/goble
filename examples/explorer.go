@@ -63,11 +63,11 @@ func explore(ble *goble.BLE, peripheral *goble.Peripheral) {
 				characteristicInfo += "\n    properties  " + characteristic.Properties.String()
 				fmt.Println(characteristicInfo)
 
-				ble.DiscoverDescriptors(ev.DeviceUUID, serviceUuid, characteristic.Uuid)
-
 				if characteristic.Properties.Readable() {
 					ble.Read(ev.DeviceUUID, serviceUuid, characteristic.Uuid)
 				}
+
+				//ble.DiscoverDescriptors(ev.DeviceUUID, serviceUuid, characteristic.Uuid)
 			}
 		}
 
@@ -82,7 +82,7 @@ func explore(ble *goble.BLE, peripheral *goble.Peripheral) {
 
 	// disconnect
 	ble.On("read", func(ev goble.Event) (done bool) {
-		fmt.Printf("    value        %x | %q", ev.Data, ev.Data)
+		fmt.Printf("    value        %x | %q\n", ev.Data, ev.Data)
 		return
 	})
 
