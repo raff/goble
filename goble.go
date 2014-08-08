@@ -402,7 +402,8 @@ func (ble *BLE) HandleXpcEvent(event dict, err error) {
 	case 70:
 		deviceUuid := args.MustGetUUID("kCBMsgArgDeviceUUID")
 		characteristicsHandle := args.MustGetInt("kCBMsgArgCharacteristicHandle")
-		isNotification := args.MustGetInt("kCBMsgArgIsNotification") != 0
+		//result := args.MustGetInt("kCBMsgArgResult")
+		isNotification := args.GetInt("kCBMsgArgIsNotification", 0) != 0
 		data := args.MustGetBytes("kCBMsgArgData")
 
 		if p, ok := ble.peripherals[deviceUuid.String()]; ok {
