@@ -399,7 +399,7 @@ func (ble *BLE) HandleXpcEvent(event dict, err error) {
 			log.Println("no peripheral", deviceUuid)
 		}
 
-	case 70:
+	case 70: // read
 		deviceUuid := args.MustGetUUID("kCBMsgArgDeviceUUID")
 		characteristicsHandle := args.MustGetInt("kCBMsgArgCharacteristicHandle")
 		//result := args.MustGetInt("kCBMsgArgResult")
