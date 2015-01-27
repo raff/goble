@@ -158,6 +158,9 @@ func (ble *BLE) SetVerbose(v bool) {
 func (ble *BLE) HandleXpcEvent(event dict, err error) {
 	if err != nil {
 		log.Println("error:", err)
+		if event == nil {
+			return
+		}
 	}
 
 	id := event.MustGetInt("kCBMsgId")
@@ -435,9 +438,9 @@ func (ble *BLE) Init() {
 
 // start advertising
 func (ble *BLE) StartAdvertising(name string, serviceUuids []UUID) {
-	uuids := make([]string, len(serviceUuids))
+	uuids := make([][]byte, len(serviceUuids))
 	for i, uuid := range serviceUuids {
-		uuids[i] = uuid.String()
+		uuids[i] = []byte(uuid[:])
 	}
 	ble.sendCBMsg(8, dict{"kCBAdvDataLocalName": name, "kCBAdvDataServiceUUIDs": uuids})
 }
