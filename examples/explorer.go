@@ -10,7 +10,18 @@ import (
 	"../../goble"
 )
 
+var (
+	verbose = flag.Bool("verbose", false, "dump all events")
+	dups    = flag.Bool("allow-duplicates", false, "allow duplicates when scanning")
+)
+
+type Result struct {
+	count int
+	data  string
+}
+
 func explore(ble *goble.BLE, peripheral *goble.Peripheral) {
+	results := map[string]Result{}
 
 	// connect
 	ble.On("connect", func(ev goble.Event) (done bool) {
@@ -37,8 +48,7 @@ func explore(ble *goble.BLE, peripheral *goble.Peripheral) {
 					serviceInfo += " (" + service.Name + ")"
 				}
 
-				fmt.Println(serviceInfo)
-
+				results[service.Uuid] = Result{data: serviceInfo}
 				ble.DiscoverCharacterstics(ev.DeviceUUID, service.Uuid, nil)
 			}
 		}
@@ -49,6 +59,7 @@ func explore(ble *goble.BLE, peripheral *goble.Peripheral) {
 	// discover characteristics
 	ble.On("characteristicsDiscover", func(ev goble.Event) (done bool) {
 		serviceUuid := ev.ServiceUuid
+		serviceResult := results[serviceUuid]
 
 		for cid, characteristic := range ev.Peripheral.Services[serviceUuid].Characteristics {
 			// this is a map that contains services UUIDs (string) and service startHandle (int)
@@ -61,13 +72,19 @@ func explore(ble *goble.BLE, peripheral *goble.Peripheral) {
 				}
 
 				characteristicInfo += "\n    properties  " + characteristic.Properties.String()
-				fmt.Println(characteristicInfo)
+				serviceResult.data += characteristicInfo
 
 				if characteristic.Properties.Readable() {
+					serviceResult.count += 1
 					ble.Read(ev.DeviceUUID, serviceUuid, characteristic.Uuid)
 				}
 
 				//ble.DiscoverDescriptors(ev.DeviceUUID, serviceUuid, characteristic.Uuid)
+				results[serviceUuid] = serviceResult
+
+				if *verbose {
+					log.Println(results[serviceUuid])
+				}
 			}
 		}
 
@@ -80,9 +97,20 @@ func explore(ble *goble.BLE, peripheral *goble.Peripheral) {
 		return
 	})
 
-	// disconnect
+	// read
 	ble.On("read", func(ev goble.Event) (done bool) {
-		fmt.Printf("    value        %x | %q\n", ev.Data, ev.Data)
+		serviceUuid := ev.ServiceUuid
+		serviceResult := results[serviceUuid]
+		serviceResult.data += fmt.Sprintf("    value        %x | %q\n", ev.Data, ev.Data)
+		serviceResult.count -= 1
+
+		if serviceResult.count <= 0 {
+			fmt.Println(serviceResult.data)
+			return true
+		} else {
+			results[serviceUuid] = serviceResult
+		}
+
 		return
 	})
 
@@ -152,8 +180,6 @@ func explore(ble *goble.BLE, peripheral *goble.Peripheral) {
 }
 
 func main() {
-	verbose := flag.Bool("verbose", false, "dump all events")
-	dups := flag.Bool("allow-duplicates", false, "allow duplicates when scanning")
 	flag.Parse()
 
 	if len(flag.Args()) != 1 {
