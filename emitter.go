@@ -28,6 +28,7 @@ type EventHandlerFunc func(Event) bool
 type Emitter struct {
 	handlers map[string]EventHandlerFunc
 	event    chan Event
+	verbose  bool
 }
 
 // Init initialize the emitter and start a goroutine to execute the event handlers
@@ -49,12 +50,18 @@ func (e *Emitter) Init() {
 					break
 				}
 			} else {
-				log.Println("unhandled Emit", ev)
+				if e.verbose {
+					log.Println("unhandled Emit", ev)
+				}
 			}
 		}
 
 		close(e.event)
 	}()
+}
+
+func (e *Emitter) SetVerbose(v bool) {
+	e.verbose = v
 }
 
 // Emit sends the event on the 'event' channel
