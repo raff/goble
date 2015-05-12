@@ -12,10 +12,10 @@ import (
 
 func main() {
 	verbose := flag.Bool("verbose", false, "dump all events")
-	advertise := flag.Int("advertise", 0, "Duration of advertising - 0: does not advertise")
+	advertise := flag.Duration("advertise", 0, "Duration of advertising - 0: does not advertise")
 	dups := flag.Bool("allow-duplicates", false, "allow duplicates when scanning")
-	ibeacon := flag.Int("ibeacon", 0, "Duration of IBeacon advertising - 0: does not advertise")
-	scan := flag.Int("scan", 10, "Duration of scanning - 0: does not scan")
+	ibeacon := flag.Duration("ibeacon", 0, "Duration of IBeacon advertising - 0: does not advertise")
+	scan := flag.Duration("scan", 10, "Duration of scanning - 0: does not scan")
 	uuid := flag.String("uuid", "", "device uuid (for ibeacon uuid,major,minor,power)")
 	connect := flag.Bool("connect", false, "connect to device")
 	disconnect := flag.Bool("disconnect", false, "disconnect from device")
@@ -43,7 +43,7 @@ func main() {
 		log.Println("Start Advertising...")
 		ble.StartAdvertising("gobble", uuids)
 
-		time.Sleep(time.Duration(*advertise) * time.Second)
+		time.Sleep(*advertise)
 		log.Println("Stop Advertising...")
 		ble.StopAdvertising()
 	}
@@ -69,7 +69,7 @@ func main() {
 		log.Println("Start Advertising IBeacon...")
 		ble.StartAdvertisingIBeacon(goble.MakeUUID(id), major, minor, measuredPower)
 
-		time.Sleep(time.Duration(*ibeacon) * time.Second)
+		time.Sleep(*ibeacon)
 		log.Println("Stop Advertising...")
 		ble.StopAdvertising()
 	}
@@ -79,7 +79,7 @@ func main() {
 		log.Println("Start Scanning...")
 		ble.StartScanning(nil, *dups)
 
-		time.Sleep(time.Duration(*scan) * time.Second)
+		time.Sleep(*scan)
 		log.Println("Stop Scanning...")
 		ble.StopScanning()
 	}
