@@ -151,6 +151,7 @@ func New() *BLE {
 
 func (ble *BLE) SetVerbose(v bool) {
 	ble.verbose = v
+	ble.Emitter.SetVerbose(v)
 }
 
 // process BLE events and asynchronous errors
@@ -447,18 +448,28 @@ func (ble *BLE) StartAdvertising(name string, serviceUuids []UUID) {
 
 // start advertising as IBeacon (raw data)
 func (ble *BLE) StartAdvertisingIBeaconData(data []byte) {
-	ble.sendCBMsg(8, dict{"kCBAdvDataAppleBeaconKey": data})
+	var utsname Utsname
+	Uname(&utsname)
+
+	if utsname.Release >= "14." {
+                l := len(data)
+		buf := bytes.NewBuffer([]byte{byte(l+5), 0xFF, 0x4C, 0x00, 0x02, byte(l)})
+		buf.Write(data)
+		ble.sendCBMsg(8, dict{"kCBAdvDataAppleMfgData": buf.Bytes()})
+	} else {
+		ble.sendCBMsg(8, dict{"kCBAdvDataAppleBeaconKey": data})
+	}
 }
 
 // start advertising as IBeacon
 func (ble *BLE) StartAdvertisingIBeacon(uuid UUID, major, minor uint16, measuredPower int8) {
-	buf := new(bytes.Buffer)
-	binary.Write(buf, binary.BigEndian, uuid[:])
-	binary.Write(buf, binary.BigEndian, major)
-	binary.Write(buf, binary.BigEndian, minor)
-	binary.Write(buf, binary.BigEndian, measuredPower)
+	var buf bytes.Buffer
+	binary.Write(&buf, binary.BigEndian, uuid[:])
+	binary.Write(&buf, binary.BigEndian, major)
+	binary.Write(&buf, binary.BigEndian, minor)
+	binary.Write(&buf, binary.BigEndian, measuredPower)
 
-	ble.sendCBMsg(8, dict{"kCBAdvDataAppleBeaconKey": buf.Bytes()})
+	ble.StartAdvertisingIBeaconData(buf.Bytes())
 }
 
 // stop advertising

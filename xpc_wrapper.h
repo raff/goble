@@ -4,6 +4,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <xpc/xpc.h>
+#include <sys/utsname.h>
 
 extern xpc_type_t TYPE_ERROR;
 

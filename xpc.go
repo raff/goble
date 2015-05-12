@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"log"
 	r "reflect"
+	"strings"
 	"unsafe"
 )
 
@@ -95,7 +96,25 @@ type UUID [16]byte
 
 func MakeUUID(s string) UUID {
 	var sl []byte
+
+	s = strings.Replace(s, "-", "", -1)
 	fmt.Sscanf(s, "%32x", &sl)
+
+	var uuid [16]byte
+	copy(uuid[:], sl)
+	return UUID(uuid)
+}
+
+func MustUUID(s string) UUID {
+	var sl []byte
+
+	s = strings.Replace(s, "-", "", -1)
+	if len(s) != 32 {
+		log.Fatal("invalid UUID")
+	}
+	if n, err := fmt.Sscanf(s, "%32x", &sl); err != nil || n != 1 {
+		log.Fatal("invalid UUID ", s, " len ", n, " error ", err)
+	}
 
 	var uuid [16]byte
 	copy(uuid[:], sl)
@@ -310,4 +329,30 @@ func xpcToGo(v C.xpc_object_t) interface{} {
 // xpc_release is needed by tests, since they can't use CGO
 func xpc_release(xv C.xpc_object_t) {
 	C.xpc_release(xv)
+}
+
+// this is used to check the OS version
+
+type Utsname struct {
+	Sysname  string
+	Nodename string
+	Release  string
+	Version  string
+	Machine  string
+}
+
+func Uname(utsname *Utsname) error {
+	var cstruct C.struct_utsname
+	if err := C.uname(&cstruct); err != 0 {
+		return errors.New("utsname error")
+	}
+
+	// XXX: this may crash if any value is exactly 256 characters (no 0 terminator)
+	utsname.Sysname = C.GoString(&cstruct.sysname[0])
+	utsname.Nodename = C.GoString(&cstruct.nodename[0])
+	utsname.Release = C.GoString(&cstruct.release[0])
+	utsname.Version = C.GoString(&cstruct.version[0])
+	utsname.Machine = C.GoString(&cstruct.machine[0])
+
+	return nil
 }
