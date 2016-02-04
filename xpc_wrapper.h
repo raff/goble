@@ -19,10 +19,10 @@ extern xpc_object_t ERROR_CONNECTION_INVALID;
 extern xpc_object_t ERROR_CONNECTION_INTERRUPTED;
 extern xpc_object_t ERROR_CONNECTION_TERMINATED;
 
-extern xpc_connection_t XpcConnect(char *, void *);
+extern xpc_connection_t XpcConnect(char *, uintptr_t);
 extern void XpcSendMessage(xpc_connection_t, xpc_object_t, bool, bool);
-extern void XpcArrayApply(void *, xpc_object_t);
-extern void XpcDictApply(void *, xpc_object_t);
+extern void XpcArrayApply(uintptr_t, xpc_object_t);
+extern void XpcDictApply(uintptr_t, xpc_object_t);
 extern void XpcUUIDGetBytes(void *, xpc_object_t);
 
 // the input type for xpc_uuid_create should be uuid_t but CGO instists on unsigned char *

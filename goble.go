@@ -452,8 +452,8 @@ func (ble *BLE) StartAdvertisingIBeaconData(data []byte) {
 	Uname(&utsname)
 
 	if utsname.Release >= "14." {
-                l := len(data)
-		buf := bytes.NewBuffer([]byte{byte(l+5), 0xFF, 0x4C, 0x00, 0x02, byte(l)})
+		l := len(data)
+		buf := bytes.NewBuffer([]byte{byte(l + 5), 0xFF, 0x4C, 0x00, 0x02, byte(l)})
 		buf.Write(data)
 		ble.sendCBMsg(8, dict{"kCBAdvDataAppleMfgData": buf.Bytes()})
 	} else {

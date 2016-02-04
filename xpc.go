@@ -165,6 +165,8 @@ var (
 
 	TYPE_OF_UUID  = r.TypeOf(UUID{})
 	TYPE_OF_BYTES = r.TypeOf([]byte{})
+
+	handlers = map[uintptr]XpcEventHandler{}
 )
 
 type XpcEventHandler interface {
@@ -172,17 +174,25 @@ type XpcEventHandler interface {
 }
 
 func XpcConnect(service string, eh XpcEventHandler) C.xpc_connection_t {
+	ctx := uintptr(unsafe.Pointer(&eh))
+	handlers[ctx] = eh
+
 	cservice := C.CString(service)
 	defer C.free(unsafe.Pointer(cservice))
-	return C.XpcConnect(cservice, unsafe.Pointer(&eh))
+	return C.XpcConnect(cservice, C.uintptr_t(ctx))
 }
 
 //export handleXpcEvent
-func handleXpcEvent(event C.xpc_object_t, p unsafe.Pointer) {
+func handleXpcEvent(event C.xpc_object_t, p C.ulong) {
 	//log.Printf("handleXpcEvent %#v %#v\n", event, p)
 
 	t := C.xpc_get_type(event)
-	eh := *((*XpcEventHandler)(p))
+
+	eh := handlers[uintptr(p)]
+	if eh == nil {
+		//log.Println("no handler for", p)
+		return
+	}
 
 	if t == C.TYPE_ERROR {
 		if event == C.ERROR_CONNECTION_INVALID {
@@ -277,14 +287,14 @@ func valueToXpc(val r.Value) C.xpc_object_t {
 }
 
 //export arraySet
-func arraySet(u unsafe.Pointer, i C.int, v C.xpc_object_t) {
-	a := *(*array)(u)
+func arraySet(u C.uintptr_t, i C.int, v C.xpc_object_t) {
+	a := *(*array)(unsafe.Pointer(uintptr(u)))
 	a[i] = xpcToGo(v)
 }
 
 //export dictSet
-func dictSet(u unsafe.Pointer, k *C.char, v C.xpc_object_t) {
-	d := *(*dict)(u)
+func dictSet(u C.uintptr_t, k *C.char, v C.xpc_object_t) {
+	d := *(*dict)(unsafe.Pointer(uintptr(u)))
 	d[C.GoString(k)] = xpcToGo(v)
 }
 
@@ -297,7 +307,8 @@ func xpcToGo(v C.xpc_object_t) interface{} {
 	switch t {
 	case C.TYPE_ARRAY:
 		a := make(array, C.int(C.xpc_array_get_count(v)))
-		C.XpcArrayApply(unsafe.Pointer(&a), v)
+		p := uintptr(unsafe.Pointer(&a))
+		C.XpcArrayApply(C.uintptr_t(p), v)
 		return a
 
 	case C.TYPE_DATA:
@@ -305,7 +316,8 @@ func xpcToGo(v C.xpc_object_t) interface{} {
 
 	case C.TYPE_DICT:
 		d := make(dict)
-		C.XpcDictApply(unsafe.Pointer(&d), v)
+		p := uintptr(unsafe.Pointer(&d))
+		C.XpcDictApply(C.uintptr_t(p), v)
 		return d
 
 	case C.TYPE_INT64:
