@@ -105,6 +105,9 @@ type Advertisement struct {
 
 type Peripheral struct {
 	Uuid          UUID
+	Address       string
+	AddressType   string
+	Connectable   bool
 	Advertisement Advertisement
 	Rssi          int
 	Services      map[interface{}]*ServiceHandle
@@ -209,6 +212,7 @@ func (ble *BLE) HandleXpcEvent(event dict, err error) {
 			ServiceUuids:     []string{},
 		}
 
+		connectable := advdata.GetInt("kCBAdvDataIsConnectable", 0) > 0
 		rssi := args.GetInt("kCBMsgArgRssi", 0)
 
 		if uuids, ok := advdata["kCBAdvDataServiceUUIDs"]; ok {
@@ -238,6 +242,7 @@ func (ble *BLE) HandleXpcEvent(event dict, err error) {
 			// add new peripheral
 			p = &Peripheral{
 				Uuid:          deviceUuid,
+				Connectable:   connectable,
 				Advertisement: advertisement,
 				Rssi:          rssi,
 				Services:      map[interface{}]*ServiceHandle{},
@@ -452,8 +457,8 @@ func (ble *BLE) StartAdvertisingIBeaconData(data []byte) {
 	Uname(&utsname)
 
 	if utsname.Release >= "14." {
-                l := len(data)
-		buf := bytes.NewBuffer([]byte{byte(l+5), 0xFF, 0x4C, 0x00, 0x02, byte(l)})
+		l := len(data)
+		buf := bytes.NewBuffer([]byte{byte(l + 5), 0xFF, 0x4C, 0x00, 0x02, byte(l)})
 		buf.Write(data)
 		ble.sendCBMsg(8, dict{"kCBAdvDataAppleMfgData": buf.Bytes()})
 	} else {
