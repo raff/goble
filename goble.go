@@ -1,9 +1,5 @@
 package goble
 
-/*
-#include <xpc/xpc.h>
-#include "xpc_wrapper.h"
-*/
 import "C"
 
 import (
@@ -12,8 +8,11 @@ import (
 	"fmt"
 	"log"
 	"time"
+
+	"github.com/raff/goble/xpc"
 )
 
+// "github.com/raff/goble/xpc"
 //
 // BLE support
 //
@@ -104,7 +103,7 @@ type Advertisement struct {
 }
 
 type Peripheral struct {
-	Uuid          UUID
+	Uuid          xpc.UUID
 	Address       string
 	AddressType   string
 	Connectable   bool
@@ -115,13 +114,13 @@ type Peripheral struct {
 
 // GATT Descriptor
 type Descriptor struct {
-	uuid  UUID
+	uuid  xpc.UUID
 	value []byte
 }
 
 // GATT Characteristic
 type Characteristic struct {
-	uuid        UUID
+	uuid        xpc.UUID
 	properties  Property
 	secure      Property
 	descriptors []Descriptor
@@ -130,17 +129,17 @@ type Characteristic struct {
 
 // GATT Service
 type Service struct {
-	uuid            UUID
+	uuid            xpc.UUID
 	characteristics []Characteristic
 }
 
 type BLE struct {
 	Emitter
-	conn    C.xpc_connection_t
+	conn    xpc.XPC
 	verbose bool
 
 	peripherals            map[string]*Peripheral
-	attributes             array
+	attributes             xpc.Array
 	lastServiceAttributeId int
 	allowDuplicates        bool
 }
@@ -148,7 +147,7 @@ type BLE struct {
 func New() *BLE {
 	ble := &BLE{peripherals: map[string]*Peripheral{}, Emitter: Emitter{}}
 	ble.Emitter.Init()
-	ble.conn = XpcConnect("com.apple.blued", ble)
+	ble.conn = xpc.XpcConnect("com.apple.blued", ble)
 	return ble
 }
 
@@ -159,7 +158,7 @@ func (ble *BLE) SetVerbose(v bool) {
 
 // process BLE events and asynchronous errors
 // (implements XpcEventHandler)
-func (ble *BLE) HandleXpcEvent(event dict, err error) {
+func (ble *BLE) HandleXpcEvent(event xpc.Dict, err error) {
 	if err != nil {
 		log.Println("error:", err)
 		if event == nil {
@@ -216,13 +215,13 @@ func (ble *BLE) HandleXpcEvent(event dict, err error) {
 		rssi := args.GetInt("kCBMsgArgRssi", 0)
 
 		if uuids, ok := advdata["kCBAdvDataServiceUUIDs"]; ok {
-			for _, uuid := range uuids.(array) {
+			for _, uuid := range uuids.(xpc.Array) {
 				advertisement.ServiceUuids = append(advertisement.ServiceUuids, fmt.Sprintf("%x", uuid))
 			}
 		}
 
 		if data, ok := advdata["kCBAdvDataServiceData"]; ok {
-			sdata := data.(array)
+			sdata := data.(xpc.Array)
 
 			for i := 0; i < len(sdata); i += 2 {
 				sd := ServiceData{
@@ -291,8 +290,8 @@ func (ble *BLE) HandleXpcEvent(event dict, err error) {
 		servicesHandles := map[interface{}]*ServiceHandle{}
 
 		if dservices, ok := args["kCBMsgArgServices"]; ok {
-			for _, s := range dservices.(array) {
-				service := s.(dict)
+			for _, s := range dservices.(xpc.Array) {
+				service := s.(xpc.Dict)
 				serviceHandle := ServiceHandle{
 					Uuid:            service.MustGetHexBytes("kCBMsgArgUUID"),
 					startHandle:     service.MustGetInt("kCBMsgArgServiceStartHandle"),
@@ -326,7 +325,7 @@ func (ble *BLE) HandleXpcEvent(event dict, err error) {
 			//result := args.MustGetInt("kCBMsgArgResult")
 
 			for _, c := range args.MustGetArray("kCBMsgArgCharacteristics") {
-				cDict := c.(dict)
+				cDict := c.(xpc.Dict)
 
 				characteristic := ServiceCharacteristic{
 					Uuid:        cDict.MustGetHexBytes("kCBMsgArgUUID"),
@@ -399,7 +398,7 @@ func (ble *BLE) HandleXpcEvent(event dict, err error) {
 			for _, s := range p.Services {
 				if c, ok := s.Characteristics[characteristicsHandle]; ok {
 					for _, d := range args.MustGetArray("kCBMsgArgDescriptors") {
-						dDict := d.(dict)
+						dDict := d.(xpc.Dict)
 						descriptor := CharacteristicDescriptor{
 							Uuid:   dDict.MustGetHexBytes("kCBMsgArgUUID"),
 							Handle: dDict.MustGetInt("kCBMsgArgDescriptorHandle"),
@@ -436,47 +435,47 @@ func (ble *BLE) HandleXpcEvent(event dict, err error) {
 }
 
 // send a message to Blued
-func (ble *BLE) sendCBMsg(id int, args dict) {
-	message := dict{"kCBMsgId": id, "kCBMsgArgs": args}
+func (ble *BLE) sendCBMsg(id int, args xpc.Dict) {
+	message := xpc.Dict{"kCBMsgId": id, "kCBMsgArgs": args}
 	if ble.verbose {
 		log.Printf("sendCBMsg %#v\n", message)
 	}
 
-	C.XpcSendMessage(ble.conn, goToXpc(message), true, ble.verbose == true)
+	ble.conn.Send(xpc.Dict{"kCBMsgId": id, "kCBMsgArgs": args}, true)
 }
 
 // initialize BLE
 func (ble *BLE) Init() {
-	ble.sendCBMsg(1, dict{"kCBMsgArgName": fmt.Sprintf("goble-%v", time.Now().Unix()),
-		"kCBMsgArgOptions": dict{"kCBInitOptionShowPowerAlert": 0}, "kCBMsgArgType": 0})
+	ble.sendCBMsg(1, xpc.Dict{"kCBMsgArgName": fmt.Sprintf("goble-%v", time.Now().Unix()),
+		"kCBMsgArgOptions": xpc.Dict{"kCBInitOptionShowPowerAlert": 0}, "kCBMsgArgType": 0})
 }
 
 // start advertising
-func (ble *BLE) StartAdvertising(name string, serviceUuids []UUID) {
+func (ble *BLE) StartAdvertising(name string, serviceUuids []xpc.UUID) {
 	uuids := make([][]byte, len(serviceUuids))
 	for i, uuid := range serviceUuids {
 		uuids[i] = []byte(uuid[:])
 	}
-	ble.sendCBMsg(8, dict{"kCBAdvDataLocalName": name, "kCBAdvDataServiceUUIDs": uuids})
+	ble.sendCBMsg(8, xpc.Dict{"kCBAdvDataLocalName": name, "kCBAdvDataServiceUUIDs": uuids})
 }
 
 // start advertising as IBeacon (raw data)
 func (ble *BLE) StartAdvertisingIBeaconData(data []byte) {
-	var utsname Utsname
-	Uname(&utsname)
+	var utsname xpc.Utsname
+	xpc.Uname(&utsname)
 
 	if utsname.Release >= "14." {
 		l := len(data)
 		buf := bytes.NewBuffer([]byte{byte(l + 5), 0xFF, 0x4C, 0x00, 0x02, byte(l)})
 		buf.Write(data)
-		ble.sendCBMsg(8, dict{"kCBAdvDataAppleMfgData": buf.Bytes()})
+		ble.sendCBMsg(8, xpc.Dict{"kCBAdvDataAppleMfgData": buf.Bytes()})
 	} else {
-		ble.sendCBMsg(8, dict{"kCBAdvDataAppleBeaconKey": data})
+		ble.sendCBMsg(8, xpc.Dict{"kCBAdvDataAppleBeaconKey": data})
 	}
 }
 
 // start advertising as IBeacon
-func (ble *BLE) StartAdvertisingIBeacon(uuid UUID, major, minor uint16, measuredPower int8) {
+func (ble *BLE) StartAdvertisingIBeacon(uuid xpc.UUID, major, minor uint16, measuredPower int8) {
 	var buf bytes.Buffer
 	binary.Write(&buf, binary.BigEndian, uuid[:])
 	binary.Write(&buf, binary.BigEndian, major)
@@ -492,18 +491,18 @@ func (ble *BLE) StopAdvertising() {
 }
 
 // start scanning
-func (ble *BLE) StartScanning(serviceUuids []UUID, allowDuplicates bool) {
+func (ble *BLE) StartScanning(serviceUuids []xpc.UUID, allowDuplicates bool) {
 	uuids := []string{}
 
 	for _, uuid := range serviceUuids {
 		uuids = append(uuids, uuid.String())
 	}
 
-	args := dict{"kCBMsgArgUUIDs": uuids}
+	args := xpc.Dict{"kCBMsgArgUUIDs": uuids}
 	if allowDuplicates {
-		args["kCBMsgArgOptions"] = dict{"kCBScanOptionAllowDuplicates": 1}
+		args["kCBMsgArgOptions"] = xpc.Dict{"kCBScanOptionAllowDuplicates": 1}
 	} else {
-		args["kCBMsgArgOptions"] = dict{}
+		args["kCBMsgArgOptions"] = xpc.Dict{}
 	}
 
 	ble.allowDuplicates = allowDuplicates
@@ -516,51 +515,51 @@ func (ble *BLE) StopScanning() {
 }
 
 // connect
-func (ble *BLE) Connect(deviceUuid UUID) {
+func (ble *BLE) Connect(deviceUuid xpc.UUID) {
 	uuid := deviceUuid.String()
 	if p, ok := ble.peripherals[uuid]; ok {
-		ble.sendCBMsg(31, dict{"kCBMsgArgOptions": dict{"kCBConnectOptionNotifyOnDisconnection": 1}, "kCBMsgArgDeviceUUID": p.Uuid})
+		ble.sendCBMsg(31, xpc.Dict{"kCBMsgArgOptions": xpc.Dict{"kCBConnectOptionNotifyOnDisconnection": 1}, "kCBMsgArgDeviceUUID": p.Uuid})
 	} else {
 		log.Println("no peripheral", deviceUuid)
 	}
 }
 
 // disconnect
-func (ble *BLE) Disconnect(deviceUuid UUID) {
+func (ble *BLE) Disconnect(deviceUuid xpc.UUID) {
 	uuid := deviceUuid.String()
 	if p, ok := ble.peripherals[uuid]; ok {
-		ble.sendCBMsg(32, dict{"kCBMsgArgDeviceUUID": p.Uuid})
+		ble.sendCBMsg(32, xpc.Dict{"kCBMsgArgDeviceUUID": p.Uuid})
 	} else {
 		log.Println("no peripheral", deviceUuid)
 	}
 }
 
 // update rssi
-func (ble *BLE) UpdateRssi(deviceUuid UUID) {
+func (ble *BLE) UpdateRssi(deviceUuid xpc.UUID) {
 	uuid := deviceUuid.String()
 	if p, ok := ble.peripherals[uuid]; ok {
-		ble.sendCBMsg(43, dict{"kCBMsgArgDeviceUUID": p.Uuid})
+		ble.sendCBMsg(43, xpc.Dict{"kCBMsgArgDeviceUUID": p.Uuid})
 	} else {
 		log.Println("no peripheral", deviceUuid)
 	}
 }
 
 // discover services
-func (ble *BLE) DiscoverServices(deviceUuid UUID, uuids []UUID) {
+func (ble *BLE) DiscoverServices(deviceUuid xpc.UUID, uuids []xpc.UUID) {
 	sUuid := deviceUuid.String()
 	if p, ok := ble.peripherals[sUuid]; ok {
 		sUuids := make([]string, len(uuids))
 		for i, uuid := range uuids {
 			sUuids[i] = uuid.String() // uuids may be a list of []byte (2 bytes)
 		}
-		ble.sendCBMsg(44, dict{"kCBMsgArgDeviceUUID": p.Uuid, "kCBMsgArgUUIDs": sUuids})
+		ble.sendCBMsg(44, xpc.Dict{"kCBMsgArgDeviceUUID": p.Uuid, "kCBMsgArgUUIDs": sUuids})
 	} else {
 		log.Println("no peripheral", deviceUuid)
 	}
 }
 
 // discover characteristics
-func (ble *BLE) DiscoverCharacterstics(deviceUuid UUID, serviceUuid string, characteristicUuids []string) {
+func (ble *BLE) DiscoverCharacterstics(deviceUuid xpc.UUID, serviceUuid string, characteristicUuids []string) {
 	sUuid := deviceUuid.String()
 	if p, ok := ble.peripherals[sUuid]; ok {
 		cUuids := make([]string, len(characteristicUuids))
@@ -568,7 +567,7 @@ func (ble *BLE) DiscoverCharacterstics(deviceUuid UUID, serviceUuid string, char
 			cUuids[i] = cuuid // characteristicUuids may be a list of []byte (2 bytes)
 		}
 
-		ble.sendCBMsg(61, dict{
+		ble.sendCBMsg(61, xpc.Dict{
 			"kCBMsgArgDeviceUUID":         p.Uuid,
 			"kCBMsgArgServiceStartHandle": p.Services[serviceUuid].startHandle,
 			"kCBMsgArgServiceEndHandle":   p.Services[serviceUuid].endHandle,
@@ -581,13 +580,13 @@ func (ble *BLE) DiscoverCharacterstics(deviceUuid UUID, serviceUuid string, char
 }
 
 // discover descriptors
-func (ble *BLE) DiscoverDescriptors(deviceUuid UUID, serviceUuid, characteristicUuid string) {
+func (ble *BLE) DiscoverDescriptors(deviceUuid xpc.UUID, serviceUuid, characteristicUuid string) {
 	sUuid := deviceUuid.String()
 	if p, ok := ble.peripherals[sUuid]; ok {
 		s := p.Services[serviceUuid]
 		c := s.Characteristics[characteristicUuid]
 
-		ble.sendCBMsg(69, dict{
+		ble.sendCBMsg(69, xpc.Dict{
 			"kCBMsgArgDeviceUUID":                p.Uuid,
 			"kCBMsgArgCharacteristicHandle":      c.Handle,
 			"kCBMsgArgCharacteristicValueHandle": c.ValueHandle,
@@ -598,13 +597,13 @@ func (ble *BLE) DiscoverDescriptors(deviceUuid UUID, serviceUuid, characteristic
 }
 
 // read
-func (ble *BLE) Read(deviceUuid UUID, serviceUuid, characteristicUuid string) {
+func (ble *BLE) Read(deviceUuid xpc.UUID, serviceUuid, characteristicUuid string) {
 	sUuid := deviceUuid.String()
 	if p, ok := ble.peripherals[sUuid]; ok {
 		s := p.Services[serviceUuid]
 		c := s.Characteristics[characteristicUuid]
 
-		ble.sendCBMsg(64, dict{
+		ble.sendCBMsg(64, xpc.Dict{
 			"kCBMsgArgDeviceUUID":                p.Uuid,
 			"kCBMsgArgCharacteristicHandle":      c.Handle,
 			"kCBMsgArgCharacteristicValueHandle": c.ValueHandle,
@@ -622,12 +621,12 @@ func (ble *BLE) RemoveServices() {
 // set services
 func (ble *BLE) SetServices(services []Service) {
 	ble.sendCBMsg(12, nil) // remove all services
-	ble.attributes = array{nil}
+	ble.attributes = xpc.Array{nil}
 
 	attributeId := 1
 
 	for _, service := range services {
-		arg := dict{
+		arg := xpc.Dict{
 			"kCBMsgArgAttributeID":     attributeId,
 			"kCBMsgArgAttributeIDs":    []int{},
 			"kCBMsgArgCharacteristics": nil,
@@ -639,7 +638,7 @@ func (ble *BLE) SetServices(services []Service) {
 		ble.lastServiceAttributeId = attributeId
 		attributeId += 1
 
-		characteristics := array{}
+		characteristics := xpc.Array{}
 
 		for _, characteristic := range service.characteristics {
 			properties := 0
@@ -691,12 +690,12 @@ func (ble *BLE) SetServices(services []Service) {
 				}
 			}
 
-			descriptors := array{}
+			descriptors := xpc.Array{}
 			for _, descriptor := range characteristic.descriptors {
-				descriptors = append(descriptors, dict{"kCBMsgArgData": descriptor.value, "kCBMsgArgUUID": descriptor.uuid.String()})
+				descriptors = append(descriptors, xpc.Dict{"kCBMsgArgData": descriptor.value, "kCBMsgArgUUID": descriptor.uuid.String()})
 			}
 
-			characteristicArg := dict{
+			characteristicArg := xpc.Dict{
 				"kCBMsgArgAttributeID":              attributeId,
 				"kCBMsgArgAttributePermissions":     permissions,
 				"kCBMsgArgCharacteristicProperties": properties,

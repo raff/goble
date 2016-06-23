@@ -2,6 +2,8 @@ package goble
 
 import (
 	"log"
+
+	"github.com/raff/goble/xpc"
 )
 
 const (
@@ -12,7 +14,7 @@ const (
 type Event struct {
 	Name               string
 	State              string
-	DeviceUUID         UUID
+	DeviceUUID         xpc.UUID
 	ServiceUuid        string
 	CharacteristicUuid string
 	Peripheral         Peripheral

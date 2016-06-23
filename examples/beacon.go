@@ -5,7 +5,8 @@ import (
 	"log"
 	"time"
 
-	"../../goble"
+	"github.com/raff/goble"
+	"github.com/raff/goble/xpc"
 )
 
 func main() {
@@ -21,14 +22,14 @@ func main() {
 	ble.SetVerbose(*verbose)
 	ble.Init()
 
-	var utsname goble.Utsname
-	goble.Uname(&utsname)
+	var utsname xpc.Utsname
+	xpc.Uname(&utsname)
 	log.Println(utsname.Release)
 
 	time.Sleep(1 * time.Second)
 
 	log.Println("Start Advertising", *uuid, *major, *minor, *power)
-	ble.StartAdvertisingIBeacon(goble.MustUUID(*uuid), uint16(*major), uint16(*minor), int8(*power))
+	ble.StartAdvertisingIBeacon(xpc.MustUUID(*uuid), uint16(*major), uint16(*minor), int8(*power))
 
 	time.Sleep(*d)
 
