@@ -1,4 +1,4 @@
-package goble
+package xpc
 
 import (
 	"testing"
@@ -36,7 +36,7 @@ func TestConvertSlice(t *testing.T) {
 
 	xpc_release(xv)
 
-	if arr2, ok := v.(array); !ok {
+	if arr2, ok := v.(Array); !ok {
 		t.Errorf("not an array: %#v\n", v)
 	} else if len(arr) != len(arr2) {
 		t.Errorf("expected %#v got %#v\n", arr, arr2)
@@ -57,7 +57,7 @@ func TestConvertSliceUUID(t *testing.T) {
 
 	xpc_release(xv)
 
-	if arr2, ok := v.(array); !ok {
+	if arr2, ok := v.(Array); !ok {
 		t.Errorf("not an array: %#v\n", v)
 	} else if len(arr) != len(arr2) {
 		t.Errorf("expected %#v got %#v\n", arr, arr2)
@@ -74,7 +74,7 @@ func TestConvertSliceUUID(t *testing.T) {
 }
 
 func TestConvertMap(t *testing.T) {
-	d := dict{
+	d := Dict{
 		"number": int64(42),
 		"text":   "hello gopher",
 		"uuid":   MakeUUID("aabbccddeeff00112233445566778899"),
@@ -85,7 +85,7 @@ func TestConvertMap(t *testing.T) {
 
 	xpc_release(xv)
 
-	if d2, ok := v.(dict); !ok {
+	if d2, ok := v.(Dict); !ok {
 		t.Errorf("not a map: %#v", v)
 	} else if len(d) != len(d2) {
 		t.Errorf("expected %#v got %#v\n", d, d2)
