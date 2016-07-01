@@ -267,12 +267,14 @@ func (ble *BLE) HandleXpcEvent(event dict, err error) {
 		deviceUuid := args.MustGetUUID("kCBMsgArgDeviceUUID")
 		ble.Emit(Event{Name: "disconnect", DeviceUUID: deviceUuid})
 
-        case 53: // mtuChange
+	case 53: // mtuChange
 		deviceUuid := args.MustGetUUID("kCBMsgArgDeviceUUID")
-                mtu := args.MustGetInt("kCBMsgArgATTMTU")
+		mtu := args.MustGetInt("kCBMsgArgATTMTU")
 
-                // bleno here converts the deviceUuid to an address
-                ble.Emit(Event{Name: "mtuChange", DeviceUUID: deviceUuid, Peripheral: *p})
+		// bleno here converts the deviceUuid to an address
+		if p, ok := ble.peripherals[deviceUuid.String()]; ok {
+			ble.Emit(Event{Name: "mtuChange", DeviceUUID: deviceUuid, Peripheral: *p, Mtu: mtu})
+		}
 
 	case 54: // rssiUpdate
 		deviceUuid := args.MustGetUUID("kCBMsgArgDeviceUUID")

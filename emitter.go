@@ -17,6 +17,7 @@ type Event struct {
 	CharacteristicUuid string
 	Peripheral         Peripheral
 	Data               []byte
+        Mtu                int
 	IsNotification     bool
 }
 
@@ -56,7 +57,7 @@ func (e *Emitter) Init() {
 			}
 		}
 
-		close(e.event)
+		close(e.event) // TOFIX: this causes new "emits" to panic. 
 	}()
 }
 
