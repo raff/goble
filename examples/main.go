@@ -7,7 +7,8 @@ import (
 	"strings"
 	"time"
 
-	"../../goble"
+	"github.com/raff/goble"
+	"github.com/raff/goble/xpc"
 )
 
 func main() {
@@ -33,10 +34,10 @@ func main() {
 	ble.Init()
 
 	if *advertise > 0 {
-		uuids := []goble.UUID{}
+		uuids := []xpc.UUID{}
 
 		if len(*uuid) > 0 {
-			uuids = append(uuids, goble.MakeUUID(*uuid))
+			uuids = append(uuids, xpc.MakeUUID(*uuid))
 		}
 
 		time.Sleep(1 * time.Second)
@@ -67,7 +68,7 @@ func main() {
 
 		time.Sleep(1 * time.Second)
 		log.Println("Start Advertising IBeacon...")
-		ble.StartAdvertisingIBeacon(goble.MakeUUID(id), major, minor, measuredPower)
+		ble.StartAdvertisingIBeacon(xpc.MakeUUID(id), major, minor, measuredPower)
 
 		time.Sleep(*ibeacon)
 		log.Println("Stop Advertising...")
@@ -86,7 +87,7 @@ func main() {
 
 	if *connect {
 		time.Sleep(1 * time.Second)
-		uuid := goble.MakeUUID(*uuid)
+		uuid := xpc.MakeUUID(*uuid)
 		log.Println("Connect", uuid)
 		ble.Connect(uuid)
 		time.Sleep(5 * time.Second)
@@ -94,7 +95,7 @@ func main() {
 
 	if *rssi {
 		time.Sleep(1 * time.Second)
-		uuid := goble.MakeUUID(*uuid)
+		uuid := xpc.MakeUUID(*uuid)
 		log.Println("UpdateRssi", uuid)
 		ble.UpdateRssi(uuid)
 		time.Sleep(5 * time.Second)
@@ -102,7 +103,7 @@ func main() {
 
 	if *discover {
 		time.Sleep(1 * time.Second)
-		uuid := goble.MakeUUID(*uuid)
+		uuid := xpc.MakeUUID(*uuid)
 		log.Println("DiscoverServices", uuid)
 		ble.DiscoverServices(uuid, nil)
 		time.Sleep(5 * time.Second)
@@ -110,7 +111,7 @@ func main() {
 
 	if *disconnect {
 		time.Sleep(1 * time.Second)
-		uuid := goble.MakeUUID(*uuid)
+		uuid := xpc.MakeUUID(*uuid)
 		log.Println("Disconnect", uuid)
 		ble.Disconnect(uuid)
 		time.Sleep(5 * time.Second)

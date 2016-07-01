@@ -1,4 +1,4 @@
-package goble
+package xpc
 
 /*
 #include "xpc_wrapper.h"
@@ -14,43 +14,52 @@ import (
 	"unsafe"
 )
 
+type XPC struct {
+	conn C.xpc_connection_t
+}
+
+func (x *XPC) Send(msg interface{}, verbose bool) {
+	// verbose == true converts the type from bool to C._Bool
+	C.XpcSendMessage(x.conn, goToXpc(msg), true, verbose == true)
+}
+
 //
 // minimal XPC support required for BLE
 //
 
 // a dictionary of things
-type dict map[string]interface{}
+type Dict map[string]interface{}
 
-func (d dict) Contains(k string) bool {
+func (d Dict) Contains(k string) bool {
 	_, ok := d[k]
 	return ok
 }
 
-func (d dict) MustGetDict(k string) dict {
-	return d[k].(dict)
+func (d Dict) MustGetDict(k string) Dict {
+	return d[k].(Dict)
 }
 
-func (d dict) MustGetArray(k string) array {
-	return d[k].(array)
+func (d Dict) MustGetArray(k string) Array {
+	return d[k].(Array)
 }
 
-func (d dict) MustGetBytes(k string) []byte {
+func (d Dict) MustGetBytes(k string) []byte {
 	return d[k].([]byte)
 }
 
-func (d dict) MustGetHexBytes(k string) string {
+func (d Dict) MustGetHexBytes(k string) string {
 	return fmt.Sprintf("%x", d[k].([]byte))
 }
 
-func (d dict) MustGetInt(k string) int {
+func (d Dict) MustGetInt(k string) int {
 	return int(d[k].(int64))
 }
 
-func (d dict) MustGetUUID(k string) UUID {
+func (d Dict) MustGetUUID(k string) UUID {
 	return d[k].(UUID)
 }
 
-func (d dict) GetString(k, defv string) string {
+func (d Dict) GetString(k, defv string) string {
 	if v := d[k]; v != nil {
 		//log.Printf("GetString %s %#v\n", k, v)
 		return v.(string)
@@ -60,7 +69,7 @@ func (d dict) GetString(k, defv string) string {
 	}
 }
 
-func (d dict) GetBytes(k string, defv []byte) []byte {
+func (d Dict) GetBytes(k string, defv []byte) []byte {
 	if v := d[k]; v != nil {
 		//log.Printf("GetBytes %s %#v\n", k, v)
 		return v.([]byte)
@@ -70,7 +79,7 @@ func (d dict) GetBytes(k string, defv []byte) []byte {
 	}
 }
 
-func (d dict) GetInt(k string, defv int) int {
+func (d Dict) GetInt(k string, defv int) int {
 	if v := d[k]; v != nil {
 		//log.Printf("GetString %s %#v\n", k, v)
 		return int(v.(int64))
@@ -80,14 +89,14 @@ func (d dict) GetInt(k string, defv int) int {
 	}
 }
 
-func (d dict) GetUUID(k string) UUID {
+func (d Dict) GetUUID(k string) UUID {
 	return GetUUID(d[k])
 }
 
-// an array of things
-type array []interface{}
+// an Array of things
+type Array []interface{}
 
-func (a array) GetUUID(k int) UUID {
+func (a Array) GetUUID(k int) UUID {
 	return GetUUID(a[k])
 }
 
@@ -170,16 +179,18 @@ var (
 )
 
 type XpcEventHandler interface {
-	HandleXpcEvent(event dict, err error)
+	HandleXpcEvent(event Dict, err error)
 }
 
-func XpcConnect(service string, eh XpcEventHandler) C.xpc_connection_t {
+func XpcConnect(service string, eh XpcEventHandler) XPC {
+	// func XpcConnect(service string, eh XpcEventHandler) C.xpc_connection_t {
 	ctx := uintptr(unsafe.Pointer(&eh))
 	handlers[ctx] = eh
 
 	cservice := C.CString(service)
 	defer C.free(unsafe.Pointer(cservice))
-	return C.XpcConnect(cservice, C.uintptr_t(ctx))
+	// return C.XpcConnect(cservice, C.uintptr_t(ctx))
+	return XPC{conn: C.XpcConnect(cservice, C.uintptr_t(ctx))}
 }
 
 //export handleXpcEvent
@@ -215,7 +226,7 @@ func handleXpcEvent(event C.xpc_object_t, p C.ulong) {
 			eh.HandleXpcEvent(nil, fmt.Errorf("%v", event))
 		}
 	} else {
-		eh.HandleXpcEvent(xpcToGo(event).(dict), nil)
+		eh.HandleXpcEvent(xpcToGo(event).(Dict), nil)
 	}
 }
 
@@ -256,7 +267,7 @@ func valueToXpc(val r.Value) C.xpc_object_t {
 
 	case r.Array, r.Slice:
 		if val.Type() == TYPE_OF_UUID {
-			// array of bytes
+			// Array of bytes
 			var uuid [16]byte
 			r.Copy(r.ValueOf(uuid[:]), val)
 			xv = C.xpc_uuid_create(C.ptr_to_uuid(unsafe.Pointer(&uuid[0])))
@@ -288,13 +299,13 @@ func valueToXpc(val r.Value) C.xpc_object_t {
 
 //export arraySet
 func arraySet(u C.uintptr_t, i C.int, v C.xpc_object_t) {
-	a := *(*array)(unsafe.Pointer(uintptr(u)))
+	a := *(*Array)(unsafe.Pointer(uintptr(u)))
 	a[i] = xpcToGo(v)
 }
 
 //export dictSet
 func dictSet(u C.uintptr_t, k *C.char, v C.xpc_object_t) {
-	d := *(*dict)(unsafe.Pointer(uintptr(u)))
+	d := *(*Dict)(unsafe.Pointer(uintptr(u)))
 	d[C.GoString(k)] = xpcToGo(v)
 }
 
@@ -306,7 +317,7 @@ func xpcToGo(v C.xpc_object_t) interface{} {
 
 	switch t {
 	case C.TYPE_ARRAY:
-		a := make(array, C.int(C.xpc_array_get_count(v)))
+		a := make(Array, C.int(C.xpc_array_get_count(v)))
 		p := uintptr(unsafe.Pointer(&a))
 		C.XpcArrayApply(C.uintptr_t(p), v)
 		return a
@@ -315,7 +326,7 @@ func xpcToGo(v C.xpc_object_t) interface{} {
 		return C.GoBytes(C.xpc_data_get_bytes_ptr(v), C.int(C.xpc_data_get_length(v)))
 
 	case C.TYPE_DICT:
-		d := make(dict)
+		d := make(Dict)
 		p := uintptr(unsafe.Pointer(&d))
 		C.XpcDictApply(C.uintptr_t(p), v)
 		return d
