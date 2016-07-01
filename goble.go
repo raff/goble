@@ -441,7 +441,7 @@ func (ble *BLE) sendCBMsg(id int, args xpc.Dict) {
 		log.Printf("sendCBMsg %#v\n", message)
 	}
 
-	ble.conn.Send(xpc.Dict{"kCBMsgId": id, "kCBMsgArgs": args}, true)
+	ble.conn.Send(xpc.Dict{"kCBMsgId": id, "kCBMsgArgs": args}, ble.verbose)
 }
 
 // initialize BLE
