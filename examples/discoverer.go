@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"log"
 
-	"../../goble"
+	"github.com/raff/goble"
 )
 
 func main() {
