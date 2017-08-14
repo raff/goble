@@ -171,6 +171,7 @@ func (ble *BLE) HandleXpcEvent(event xpc.Dict, err error) {
 
 	if ble.verbose {
 		log.Printf("event: %v %#v\n", id, args)
+		defer log.Printf("done event: %v", id)
 	}
 
 	switch id {
@@ -275,16 +276,7 @@ func (ble *BLE) HandleXpcEvent(event xpc.Dict, err error) {
 			ble.Emit(Event{Name: "mtuChange", DeviceUUID: deviceUuid, Peripheral: *p, Mtu: mtu})
 		}
 
-	case 54: // rssiUpdate
-		deviceUuid := args.MustGetUUID("kCBMsgArgDeviceUUID")
-		rssi := args.MustGetInt("kCBMsgArgData")
-
-		if p, ok := ble.peripherals[deviceUuid.String()]; ok {
-			p.Rssi = rssi
-			ble.Emit(Event{Name: "rssiUpdate", DeviceUUID: deviceUuid, Peripheral: *p})
-		}
-
-	case 55: // serviceDiscover
+	case 54: // serviceDiscover
 		deviceUuid := args.MustGetUUID("kCBMsgArgDeviceUUID")
 		servicesUuids := []string{}
 		servicesHandles := map[interface{}]*ServiceHandle{}
@@ -313,6 +305,15 @@ func (ble *BLE) HandleXpcEvent(event xpc.Dict, err error) {
 		if p, ok := ble.peripherals[deviceUuid.String()]; ok {
 			p.Services = servicesHandles
 			ble.Emit(Event{Name: "servicesDiscover", DeviceUUID: deviceUuid, Peripheral: *p})
+		}
+
+	case 55: // rssiUpdate
+		deviceUuid := args.MustGetUUID("kCBMsgArgDeviceUUID")
+		rssi := args.MustGetInt("kCBMsgArgData")
+
+		if p, ok := ble.peripherals[deviceUuid.String()]; ok {
+			p.Rssi = rssi
+			ble.Emit(Event{Name: "rssiUpdate", DeviceUUID: deviceUuid, Peripheral: *p})
 		}
 
 	case 63: // characteristicsDiscover
