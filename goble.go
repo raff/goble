@@ -142,12 +142,15 @@ type BLE struct {
 	attributes             xpc.Array
 	lastServiceAttributeId int
 	allowDuplicates        bool
+
+	utsname xpc.Utsname
 }
 
 func New() *BLE {
 	ble := &BLE{peripherals: map[string]*Peripheral{}, Emitter: Emitter{}}
 	ble.Emitter.Init()
 	ble.conn = xpc.XpcConnect("com.apple.blued", ble)
+	xpc.Uname(&ble.utsname)
 	return ble
 }
 
@@ -462,10 +465,7 @@ func (ble *BLE) StartAdvertising(name string, serviceUuids []xpc.UUID) {
 
 // start advertising as IBeacon (raw data)
 func (ble *BLE) StartAdvertisingIBeaconData(data []byte) {
-	var utsname xpc.Utsname
-	xpc.Uname(&utsname)
-
-	if utsname.Release >= "14." {
+	if ble.utsname.Release >= "14." {
 		l := len(data)
 		buf := bytes.NewBuffer([]byte{byte(l + 5), 0xFF, 0x4C, 0x00, 0x02, byte(l)})
 		buf.Write(data)
