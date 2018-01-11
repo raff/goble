@@ -178,7 +178,7 @@ func (ble *BLE) HandleXpcEvent(event xpc.Dict, err error) {
 	}
 
 	switch id {
-	case 6: // state change
+	case 4, 6: // state change
 		state := args.MustGetInt("kCBMsgArgState")
 		ble.Emit(Event{Name: "stateChange", State: STATES[state]})
 
@@ -198,7 +198,7 @@ func (ble *BLE) HandleXpcEvent(event xpc.Dict, err error) {
 			ble.Emit(Event{Name: "advertisingStop"})
 		}
 
-	case 37: // discover
+	case 37, 48: // discover
 		advdata := args.MustGetDict("kCBMsgArgAdvertisementData")
 		if len(advdata) == 0 {
 			//log.Println("event: discover with no advertisment data")
@@ -507,7 +507,11 @@ func (ble *BLE) StartScanning(serviceUuids []xpc.UUID, allowDuplicates bool) {
 	}
 
 	ble.allowDuplicates = allowDuplicates
-	ble.sendCBMsg(29, args)
+	if ble.utsname.Release >= "17." {
+		ble.sendCBMsg(44, args)
+	} else {
+		ble.sendCBMsg(29, args)
+	}
 }
 
 // stop scanning
