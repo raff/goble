@@ -564,7 +564,7 @@ func (ble *BLE) DiscoverServices(deviceUuid xpc.UUID, uuids []xpc.UUID) {
 }
 
 // discover characteristics
-func (ble *BLE) DiscoverCharacterstics(deviceUuid xpc.UUID, serviceUuid string, characteristicUuids []string) {
+func (ble *BLE) DiscoverCharacteristics(deviceUuid xpc.UUID, serviceUuid string, characteristicUuids []string) {
 	sUuid := deviceUuid.String()
 	if p, ok := ble.peripherals[sUuid]; ok {
 		cUuids := make([]string, len(characteristicUuids))
