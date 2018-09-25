@@ -198,7 +198,7 @@ func (ble *BLE) HandleXpcEvent(event xpc.Dict, err error) {
 			ble.Emit(Event{Name: "advertisingStop"})
 		}
 
-	case 37, 48: // discover
+	case 37, 48, 51: // discover
 		advdata := args.MustGetDict("kCBMsgArgAdvertisementData")
 		if len(advdata) == 0 {
 			//log.Println("event: discover with no advertisment data")
@@ -262,7 +262,7 @@ func (ble *BLE) HandleXpcEvent(event xpc.Dict, err error) {
 			ble.Emit(Event{Name: "discover", DeviceUUID: deviceUuid, Peripheral: *p})
 		}
 
-	case 38: // connect
+	case 38, 67: // connect
 		deviceUuid := args.MustGetUUID("kCBMsgArgDeviceUUID")
 		ble.Emit(Event{Name: "connect", DeviceUUID: deviceUuid})
 
@@ -271,6 +271,12 @@ func (ble *BLE) HandleXpcEvent(event xpc.Dict, err error) {
 		ble.Emit(Event{Name: "disconnect", DeviceUUID: deviceUuid})
 
 	case 53: // mtuChange
+		if ble.utsname.Release >= "14." {
+			// this is actually a disconnect
+			deviceUuid := args.MustGetUUID("kCBMsgArgDeviceUUID")
+			ble.Emit(Event{Name: "disconnect", DeviceUUID: deviceUuid})
+			break
+		}
 		deviceUuid := args.MustGetUUID("kCBMsgArgDeviceUUID")
 		mtu := args.MustGetInt("kCBMsgArgATTMTU")
 
@@ -279,7 +285,7 @@ func (ble *BLE) HandleXpcEvent(event xpc.Dict, err error) {
 			ble.Emit(Event{Name: "mtuChange", DeviceUUID: deviceUuid, Peripheral: *p, Mtu: mtu})
 		}
 
-	case 54: // serviceDiscover
+	case 54, 82: // serviceDiscover
 		deviceUuid := args.MustGetUUID("kCBMsgArgDeviceUUID")
 		servicesUuids := []string{}
 		servicesHandles := map[interface{}]*ServiceHandle{}
@@ -319,7 +325,7 @@ func (ble *BLE) HandleXpcEvent(event xpc.Dict, err error) {
 			ble.Emit(Event{Name: "rssiUpdate", DeviceUUID: deviceUuid, Peripheral: *p})
 		}
 
-	case 63: // characteristicsDiscover
+	case 63, 89: // characteristicsDiscover
 		deviceUuid := args.MustGetUUID("kCBMsgArgDeviceUUID")
 		serviceStartHandle := args.MustGetInt("kCBMsgArgServiceStartHandle")
 
@@ -393,7 +399,7 @@ func (ble *BLE) HandleXpcEvent(event xpc.Dict, err error) {
 			log.Println("no peripheral", deviceUuid)
 		}
 
-	case 75: // descriptorsDiscover
+	case 75, 99: // descriptorsDiscover
 		deviceUuid := args.MustGetUUID("kCBMsgArgDeviceUUID")
 		characteristicsHandle := args.MustGetInt("kCBMsgArgCharacteristicHandle")
 		//result := args.MustGetInt("kCBMsgArgResult")
@@ -420,7 +426,7 @@ func (ble *BLE) HandleXpcEvent(event xpc.Dict, err error) {
 			log.Println("no peripheral", deviceUuid)
 		}
 
-	case 70: // read
+	case 70, 95: // read
 		deviceUuid := args.MustGetUUID("kCBMsgArgDeviceUUID")
 		characteristicsHandle := args.MustGetInt("kCBMsgArgCharacteristicHandle")
 		//result := args.MustGetInt("kCBMsgArgResult")
@@ -507,23 +513,33 @@ func (ble *BLE) StartScanning(serviceUuids []xpc.UUID, allowDuplicates bool) {
 	}
 
 	ble.allowDuplicates = allowDuplicates
-	if ble.utsname.Release >= "17." {
-		ble.sendCBMsg(44, args)
-	} else {
-		ble.sendCBMsg(29, args)
+	msg := 29
+	if ble.utsname.Release >= "18." {
+		msg = 46
+	} else if ble.utsname.Release >= "17." {
+		msg = 44
 	}
+	ble.sendCBMsg(msg, args)
 }
 
 // stop scanning
 func (ble *BLE) StopScanning() {
-	ble.sendCBMsg(30, nil)
+	msg := 30
+	if ble.utsname.Release >= "18." {
+		msg = 47
+	}
+	ble.sendCBMsg(msg, nil)
 }
 
 // connect
 func (ble *BLE) Connect(deviceUuid xpc.UUID) {
 	uuid := deviceUuid.String()
+	msg := 31
+	if ble.utsname.Release >= "18." {
+		msg = 48
+	}
 	if p, ok := ble.peripherals[uuid]; ok {
-		ble.sendCBMsg(31, xpc.Dict{"kCBMsgArgOptions": xpc.Dict{"kCBConnectOptionNotifyOnDisconnection": 1}, "kCBMsgArgDeviceUUID": p.Uuid})
+		ble.sendCBMsg(msg, xpc.Dict{"kCBMsgArgOptions": xpc.Dict{"kCBConnectOptionNotifyOnDisconnection": 1}, "kCBMsgArgDeviceUUID": p.Uuid})
 	} else {
 		log.Println("no peripheral", deviceUuid)
 	}
@@ -532,8 +548,12 @@ func (ble *BLE) Connect(deviceUuid xpc.UUID) {
 // disconnect
 func (ble *BLE) Disconnect(deviceUuid xpc.UUID) {
 	uuid := deviceUuid.String()
+	msg := 32
+	if ble.utsname.Release >= "18." {
+		msg = 49
+	}
 	if p, ok := ble.peripherals[uuid]; ok {
-		ble.sendCBMsg(32, xpc.Dict{"kCBMsgArgDeviceUUID": p.Uuid})
+		ble.sendCBMsg(msg, xpc.Dict{"kCBMsgArgDeviceUUID": p.Uuid})
 	} else {
 		log.Println("no peripheral", deviceUuid)
 	}
@@ -542,8 +562,12 @@ func (ble *BLE) Disconnect(deviceUuid xpc.UUID) {
 // update rssi
 func (ble *BLE) UpdateRssi(deviceUuid xpc.UUID) {
 	uuid := deviceUuid.String()
+	msg := 43
+	if ble.utsname.Release >= "18." {
+		msg = 71
+	}
 	if p, ok := ble.peripherals[uuid]; ok {
-		ble.sendCBMsg(43, xpc.Dict{"kCBMsgArgDeviceUUID": p.Uuid})
+		ble.sendCBMsg(msg, xpc.Dict{"kCBMsgArgDeviceUUID": p.Uuid})
 	} else {
 		log.Println("no peripheral", deviceUuid)
 	}
@@ -552,12 +576,16 @@ func (ble *BLE) UpdateRssi(deviceUuid xpc.UUID) {
 // discover services
 func (ble *BLE) DiscoverServices(deviceUuid xpc.UUID, uuids []xpc.UUID) {
 	sUuid := deviceUuid.String()
+	msg := 44
+	if ble.utsname.Release >= "18." {
+		msg = 72
+	}
 	if p, ok := ble.peripherals[sUuid]; ok {
 		sUuids := make([]string, len(uuids))
 		for i, uuid := range uuids {
 			sUuids[i] = uuid.String() // uuids may be a list of []byte (2 bytes)
 		}
-		ble.sendCBMsg(44, xpc.Dict{"kCBMsgArgDeviceUUID": p.Uuid, "kCBMsgArgUUIDs": sUuids})
+		ble.sendCBMsg(msg, xpc.Dict{"kCBMsgArgDeviceUUID": p.Uuid, "kCBMsgArgUUIDs": sUuids})
 	} else {
 		log.Println("no peripheral", deviceUuid)
 	}
@@ -566,13 +594,17 @@ func (ble *BLE) DiscoverServices(deviceUuid xpc.UUID, uuids []xpc.UUID) {
 // discover characteristics
 func (ble *BLE) DiscoverCharacteristics(deviceUuid xpc.UUID, serviceUuid string, characteristicUuids []string) {
 	sUuid := deviceUuid.String()
+	msg := 61
+	if ble.utsname.Release >= "18." {
+		msg = 87
+	}
 	if p, ok := ble.peripherals[sUuid]; ok {
 		cUuids := make([]string, len(characteristicUuids))
 		for i, cuuid := range characteristicUuids {
 			cUuids[i] = cuuid // characteristicUuids may be a list of []byte (2 bytes)
 		}
 
-		ble.sendCBMsg(61, xpc.Dict{
+		ble.sendCBMsg(msg, xpc.Dict{
 			"kCBMsgArgDeviceUUID":         p.Uuid,
 			"kCBMsgArgServiceStartHandle": p.Services[serviceUuid].startHandle,
 			"kCBMsgArgServiceEndHandle":   p.Services[serviceUuid].endHandle,
@@ -587,11 +619,15 @@ func (ble *BLE) DiscoverCharacteristics(deviceUuid xpc.UUID, serviceUuid string,
 // discover descriptors
 func (ble *BLE) DiscoverDescriptors(deviceUuid xpc.UUID, serviceUuid, characteristicUuid string) {
 	sUuid := deviceUuid.String()
+	msg := 69
+	if ble.utsname.Release >= "18." {
+		msg = 94
+	}
 	if p, ok := ble.peripherals[sUuid]; ok {
 		s := p.Services[serviceUuid]
 		c := s.Characteristics[characteristicUuid]
 
-		ble.sendCBMsg(69, xpc.Dict{
+		ble.sendCBMsg(msg, xpc.Dict{
 			"kCBMsgArgDeviceUUID":                p.Uuid,
 			"kCBMsgArgCharacteristicHandle":      c.Handle,
 			"kCBMsgArgCharacteristicValueHandle": c.ValueHandle,
@@ -604,11 +640,15 @@ func (ble *BLE) DiscoverDescriptors(deviceUuid xpc.UUID, serviceUuid, characteri
 // read
 func (ble *BLE) Read(deviceUuid xpc.UUID, serviceUuid, characteristicUuid string) {
 	sUuid := deviceUuid.String()
+	msg := 64
+	if ble.utsname.Release >= "18." {
+		msg = 100
+	}
 	if p, ok := ble.peripherals[sUuid]; ok {
 		s := p.Services[serviceUuid]
 		c := s.Characteristics[characteristicUuid]
 
-		ble.sendCBMsg(64, xpc.Dict{
+		ble.sendCBMsg(msg, xpc.Dict{
 			"kCBMsgArgDeviceUUID":                p.Uuid,
 			"kCBMsgArgCharacteristicHandle":      c.Handle,
 			"kCBMsgArgCharacteristicValueHandle": c.ValueHandle,
