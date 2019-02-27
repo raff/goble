@@ -19,8 +19,7 @@ type XPC struct {
 }
 
 func (x *XPC) Send(msg interface{}, verbose bool) {
-	// verbose == true converts the type from bool to C._Bool
-	C.XpcSendMessage(x.conn, goToXpc(msg), true, verbose == true)
+	C.XpcSendMessage(x.conn, goToXpc(msg), C.bool(true), C.bool(verbose))
 }
 
 //
