@@ -263,6 +263,12 @@ func (ble *BLE) HandleXpcEvent(event xpc.Dict, err error) {
 		}
 
 	case 38, 67: // connect
+		if id == 38 && ble.utsname.Release >= "18." {
+			// this is not a connect (it doesn't have kCBMsgArgDeviceUUID,
+			// but instead has kCBAdvDataDeviceAddress)
+			break
+		}
+
 		deviceUuid := args.MustGetUUID("kCBMsgArgDeviceUUID")
 		ble.Emit(Event{Name: "connect", DeviceUUID: deviceUuid})
 
