@@ -147,8 +147,7 @@ type BLE struct {
 }
 
 func New() *BLE {
-	ble := &BLE{peripherals: map[string]*Peripheral{}, Emitter: Emitter{}}
-	ble.Emitter.Init()
+	ble := &BLE{peripherals: map[string]*Peripheral{}, Emitter: MakeEmitter()}
 	ble.conn = xpc.XpcConnect("com.apple.blued", ble)
 	xpc.Uname(&ble.utsname)
 	return ble
@@ -434,10 +433,10 @@ func (ble *BLE) HandleXpcEvent(event xpc.Dict, err error) {
 
 	case 70, 95: // read
 		deviceUuid := args.MustGetUUID("kCBMsgArgDeviceUUID")
-		characteristicsHandle := args.MustGetInt("kCBMsgArgCharacteristicHandle")
+		characteristicsHandle := args.GetInt("kCBMsgArgCharacteristicHandle", 0)
 		//result := args.MustGetInt("kCBMsgArgResult")
 		isNotification := args.GetInt("kCBMsgArgIsNotification", 0) != 0
-		data := args.MustGetBytes("kCBMsgArgData")
+		data := args.GetBytes("kCBMsgArgData", []byte{})
 
 		if p, ok := ble.peripherals[deviceUuid.String()]; ok {
 			for _, s := range p.Services {
@@ -456,12 +455,12 @@ func (ble *BLE) sendCBMsg(id int, args xpc.Dict) {
 	if ble.verbose {
 		log.Printf("sendCBMsg %#v\n", message)
 	}
-
-	ble.conn.Send(xpc.Dict{"kCBMsgId": id, "kCBMsgArgs": args}, ble.verbose)
+	ble.conn.Send(message, ble.verbose)
 }
 
 // initialize BLE
 func (ble *BLE) Init() {
+	ble.Emitter.Init()
 	ble.sendCBMsg(1, xpc.Dict{"kCBMsgArgName": fmt.Sprintf("goble-%v", time.Now().Unix()),
 		"kCBMsgArgOptions": xpc.Dict{"kCBInitOptionShowPowerAlert": 0}, "kCBMsgArgType": 0})
 }
