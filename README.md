@@ -1,3 +1,7 @@
+[![Go Documentation](http://godoc.org/github.com/raff/goble?status.svg)](http://godoc.org/github.com/raff/goble)
+[![Go Report Card](https://goreportcard.com/badge/github.com/raff/goble)](https://goreportcard.com/report/github.com/raff/goble)
+[![Actions Status](https://github.com/raff/goble/workflows/Go/badge.svg)](https://github.com/raff/goble/actions)
+
 goble
 =====
 
