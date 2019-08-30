@@ -26,40 +26,57 @@ type Event struct {
 // The event handler function.
 // Return true to terminate
 type EventHandlerFunc func(Event) bool
+type subscriberFunc struct {
+	eventName string
+	fn        EventHandlerFunc
+}
 
 // Emitter is an object to emit and handle Event(s)
 type Emitter struct {
-	handlers map[string]EventHandlerFunc
-	event    chan Event
-	verbose  bool
+	handlers  map[string]EventHandlerFunc
+	event     chan Event
+	subscribe chan subscriberFunc
+	verbose   bool
+	clean     chan bool
+}
+
+func MakeEmitter() Emitter {
+	return Emitter{handlers: make(map[string]EventHandlerFunc), event: make(chan Event), subscribe: make(chan subscriberFunc), clean: make(chan bool)}
 }
 
 // Init initialize the emitter and start a goroutine to execute the event handlers
 func (e *Emitter) Init() {
-	e.handlers = make(map[string]EventHandlerFunc)
-	e.event = make(chan Event)
 
 	// event handler
 	go func() {
 		for {
-			ev := <-e.event
-
-			if fn, ok := e.handlers[ev.Name]; ok {
-				if fn(ev) {
-					break
+			select {
+			case ev := <-e.event:
+				if fn, ok := e.handlers[ev.Name]; ok {
+					fn(ev)
+				} else if fn, ok := e.handlers[ALL]; ok {
+					fn(ev)
+				} else {
+					if e.verbose {
+						log.Println("unhandled Emit", ev)
+					}
 				}
-			} else if fn, ok := e.handlers[ALL]; ok {
-				if fn(ev) {
-					break
+			case cb := <-e.subscribe:
+				if cb.fn == nil {
+					delete(e.handlers, cb.eventName)
+				} else {
+					e.handlers[cb.eventName] = cb.fn
 				}
-			} else {
-				if e.verbose {
-					log.Println("unhandled Emit", ev)
+			case cleaning := <-e.clean:
+				if cleaning == true {
+					close(e.event)
+					close(e.subscribe)
+					close(e.clean)
+					return
 				}
 			}
 		}
-
-		close(e.event) // TOFIX: this causes new "emits" to panic.
+		//close(e.event) // TOFIX: this causes new "emits" to panic.
 	}()
 }
 
@@ -74,9 +91,9 @@ func (e *Emitter) Emit(ev Event) {
 
 // On(event, cb) registers an handler for the specified event
 func (e *Emitter) On(event string, fn EventHandlerFunc) {
-	if fn == nil {
-		delete(e.handlers, event)
-	} else {
-		e.handlers[event] = fn
-	}
+	e.subscribe <- subscriberFunc{eventName: event, fn: fn}
+}
+
+func (e *Emitter) Close() {
+	e.clean <- true
 }
