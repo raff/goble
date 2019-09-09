@@ -27,6 +27,9 @@ func main() {
 	}
 
 	ble.On("stateChange", func(ev goble.Event) (done bool) {
+                if *verbose {
+                        fmt.Println("stateChange", ev.State)
+                }
 		if ev.State == "poweredOn" {
 			ble.StartScanning(nil, *dups)
 		} else {
@@ -39,6 +42,9 @@ func main() {
 	})
 
 	ble.On("discover", func(ev goble.Event) (done bool) {
+                if *verbose {
+                        fmt.Println("discover", ev.State)
+                }
 		if *compact {
 			fmt.Println("peripheral:", ev.DeviceUUID)
 			if ev.Peripheral.Advertisement.LocalName != "" {
@@ -74,7 +80,7 @@ func main() {
 
 		if len(ev.Peripheral.Advertisement.ManufacturerData) > 0 {
 			if *compact {
-				fmt.Println("  manufacturer data:", ev.Peripheral.Advertisement.ManufacturerData)
+				fmt.Printf("  manufacturer data: %x\n", ev.Peripheral.Advertisement.ManufacturerData)
 			} else {
 				fmt.Println("\there is my manufacturer data:")
 				fmt.Println("\t\t", ev.Peripheral.Advertisement.ManufacturerData)

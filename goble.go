@@ -198,7 +198,7 @@ func (ble *BLE) HandleXpcEvent(event xpc.Dict, err error) {
 			ble.Emit(Event{Name: "advertisingStop"})
 		}
 
-	case 37, 48, 51: // discover
+	case 37, 48, 51, 57: // discover
 		advdata := args.MustGetDict("kCBMsgArgAdvertisementData")
 		if len(advdata) == 0 {
 			//log.Println("event: discover with no advertisment data")
@@ -457,7 +457,7 @@ func (ble *BLE) sendCBMsg(id int, args xpc.Dict) {
 		log.Printf("sendCBMsg %#v\n", message)
 	}
 
-	ble.conn.Send(xpc.Dict{"kCBMsgId": id, "kCBMsgArgs": args}, ble.verbose)
+	ble.conn.Send(message, ble.verbose)
 }
 
 // initialize BLE
@@ -520,7 +520,9 @@ func (ble *BLE) StartScanning(serviceUuids []xpc.UUID, allowDuplicates bool) {
 
 	ble.allowDuplicates = allowDuplicates
 	msg := 29
-	if ble.utsname.Release >= "18." {
+	if ble.utsname.Release >= "19." {
+		msg = 51
+	} else if ble.utsname.Release >= "18." {
 		msg = 46
 	} else if ble.utsname.Release >= "17." {
 		msg = 44
@@ -531,7 +533,9 @@ func (ble *BLE) StartScanning(serviceUuids []xpc.UUID, allowDuplicates bool) {
 // stop scanning
 func (ble *BLE) StopScanning() {
 	msg := 30
-	if ble.utsname.Release >= "18." {
+	if ble.utsname.Release >= "19." {
+		msg = 52
+	} else if ble.utsname.Release >= "18." {
 		msg = 47
 	}
 	ble.sendCBMsg(msg, nil)
