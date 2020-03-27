@@ -24,7 +24,7 @@ func main() {
 
 	var utsname xpc.Utsname
 	xpc.Uname(&utsname)
-	log.Println(utsname.Release)
+	log.Println("Release", utsname.Release)
 
 	time.Sleep(1 * time.Second)
 

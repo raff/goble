@@ -35,11 +35,19 @@ func (d Dict) Contains(k string) bool {
 }
 
 func (d Dict) MustGetDict(k string) Dict {
-	return d[k].(Dict)
+	if v, ok := d[k]; ok {
+		return v.(Dict)
+	}
+
+	return nil
 }
 
 func (d Dict) MustGetArray(k string) Array {
-	return d[k].(Array)
+	if v, ok := d[k]; ok {
+		return v.(Array)
+	}
+
+	return nil
 }
 
 func (d Dict) MustGetBytes(k string) []byte {

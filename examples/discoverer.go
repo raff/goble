@@ -6,6 +6,7 @@ import (
 	"log"
 
 	"github.com/raff/goble"
+	"github.com/raff/goble/xpc"
 )
 
 func main() {
@@ -20,6 +21,10 @@ func main() {
 	ble.SetVerbose(*verbose)
 
 	if *verbose {
+		var utsname xpc.Utsname
+		xpc.Uname(&utsname)
+		log.Println("Release", utsname.Release)
+
 		ble.On(goble.ALL, func(ev goble.Event) (done bool) {
 			log.Println("Event", ev)
 			return
@@ -27,9 +32,6 @@ func main() {
 	}
 
 	ble.On("stateChange", func(ev goble.Event) (done bool) {
-                if *verbose {
-                        fmt.Println("stateChange", ev.State)
-                }
 		if ev.State == "poweredOn" {
 			ble.StartScanning(nil, *dups)
 		} else {
@@ -42,9 +44,6 @@ func main() {
 	})
 
 	ble.On("discover", func(ev goble.Event) (done bool) {
-                if *verbose {
-                        fmt.Println("discover", ev.State)
-                }
 		if *compact {
 			fmt.Println("peripheral:", ev.DeviceUUID)
 			if ev.Peripheral.Advertisement.LocalName != "" {
